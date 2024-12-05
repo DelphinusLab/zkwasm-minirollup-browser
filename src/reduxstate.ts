@@ -176,7 +176,8 @@ async function deposit(chainId: number, tokenIndex: number, amount: number, prik
       const amountWei = a.mul(b);
       if (allowance < amountWei) {
         if (balance >= amountWei) {
-          await tokenContract.getEthersContract().approve(proxyAddr, balance);
+          const tx = await tokenContract.getEthersContract().approve(proxyAddr, balance);
+          await tx.wait();
         } else {
           throw Error("Not enough balance for approve");
         }
@@ -188,8 +189,9 @@ async function deposit(chainId: number, tokenIndex: number, amount: number, prik
         pkeyArray[2],
         BigInt(amountWei.toString()),
       );
+      const txReceipt = await tx.wait();
       // wait for tx to be mined, can add no. of confirmations as arg
-      return tx
+      return txReceipt
       // tx.hash
     });
   } catch (e) {
