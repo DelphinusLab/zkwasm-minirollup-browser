@@ -203,7 +203,7 @@ async function deposit(chainId: number, tokenIndex: number, amount: number, prik
 export interface AccountState {
   l1Account?: L1AccountInfo;
   l2account?: L2AccountInfo;
-  status: 'Loading' | 'Ready';
+  status: 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
 }
 
 export interface State {
@@ -211,7 +211,7 @@ export interface State {
 }
 
 const initialState: AccountState = {
-  status: 'Loading',
+  status: 'LoadingL1',
 };
 
 // The function below is called a thunk and allows us to perform async logic. It
@@ -254,15 +254,17 @@ export const accountSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(loginL1AccountAsync.pending, (state) => {
-        state.status = 'Loading';
+        state.status = 'LoadingL1';
       })
       .addCase(loginL1AccountAsync.fulfilled, (state, c) => {
-        state.status = 'Ready';
-        console.log(c);
+        state.status = 'LoadingL2';
         state.l1Account = c.payload;
       })
+      .addCase(loginL1AccountAsync.rejected, (state, c) => {
+        state.status = 'L1AccountError';
+      })
       .addCase(loginL2AccountAsync.pending, (state) => {
-        state.status = 'Loading';
+        state.status = 'LoadingL2';
       })
       .addCase(loginL2AccountAsync.fulfilled, (state, c) => {
         state.status = 'Ready';
@@ -270,7 +272,7 @@ export const accountSlice = createSlice({
         state.l2account = c.payload;
       })
       .addCase(depositAsync.pending, (state) => {
-        state.status = 'Loading';
+        state.status = 'Deposit';
         console.log("deposit async is pending ....");
       })
       .addCase(depositAsync.fulfilled, (state, c) => {
