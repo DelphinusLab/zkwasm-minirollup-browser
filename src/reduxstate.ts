@@ -229,8 +229,8 @@ export const loginL1AccountAsync = createAsyncThunk(
 
 export const loginL2AccountAsync = createAsyncThunk(
   'acccount/deriveL2Account',
-  async (l1account:L1AccountInfo,  thunkApi) => {
-    const l2account = await loginL2Account(l1account.address);
+  async (appName:string,  thunkApi) => {
+    const l2account = await loginL2Account(appName);
     return l2account;
   }
 );
