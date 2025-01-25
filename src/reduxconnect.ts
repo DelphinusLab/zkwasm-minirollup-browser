@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getConfig, sendTransaction, queryState, queryInitialState } from "./connect";
+import { getConfig, sendTransaction, queryState, queryInitialState } from "./connect.js";
 
 export enum ConnectState{
   Init,
