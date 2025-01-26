@@ -156,7 +156,7 @@ const contractABI = {
 
 async function deposit(chainId: number, tokenIndex: number, amount: number, prikey: L2AccountInfo, l1account: L1AccountInfo) {
   try {
-    await withBrowserConnector(async (connector: DelphinusBrowserConnector) => {
+    const txReceipt = await withBrowserConnector(async (connector: DelphinusBrowserConnector) => {
       const chainidhex = "0x" + parseInt(process.env.REACT_APP_CHAIN_ID!).toString(16);
       await connector.switchNet(chainidhex);
       const pkey = PrivateKey.fromString(prikey.address);
@@ -194,6 +194,7 @@ async function deposit(chainId: number, tokenIndex: number, amount: number, prik
       return txReceipt
       // tx.hash
     });
+    return txReceipt;
   } catch (e) {
     console.error(e);
     throw e;
