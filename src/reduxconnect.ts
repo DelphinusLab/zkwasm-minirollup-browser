@@ -6,8 +6,9 @@ export enum ConnectState{
   Loading,
   Idle,
   InstallPlayer,
+  QueryConfig,
   QueryState,
-  ConnectingError,
+  ConnectionError,
   WaitingTxReply,
   WaitingDepositReply,
 }
@@ -88,7 +89,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
             errorInfo: `query state rejected: ${action.payload}`,
             payload: action.payload,
           }
-          state.connectState = ConnectState.ConnectingError;
+          state.connectState = ConnectState.ConnectionError;
         })
         .addCase(queryInitialState.fulfilled, (state, action) => {
           const loadedState = action.payload.state;
@@ -98,7 +99,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
           }
         })
         .addCase(queryInitialState.rejected, (state, action) => {
-          state.connectState = ConnectState.ConnectingError;
+          state.connectState = ConnectState.ConnectionError;
           state.lastError = {
             errorInfo: `query state rejected: ${action.payload}`,
             payload: action.payload,
