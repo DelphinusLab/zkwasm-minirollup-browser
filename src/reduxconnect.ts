@@ -42,8 +42,11 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 
     extraReducers: (builder) => {
       builder
+        .addCase(getConfig.pending, (state, action) => {
+          state.connectState = ConnectState.QueryConfig;
+        })
         .addCase(getConfig.fulfilled, (state, action) => {
-          state.connectState = ConnectState.QueryState;
+          state.connectState = ConnectState.Idle;
           state.config = action.payload;
         })
         .addCase(getConfig.rejected, (state, action) => {
@@ -51,6 +54,9 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
             errorInfo: `query config rejected: ${action.payload}`,
             payload: action.payload,
           }
+        })
+        .addCase(sendTransaction.pending, (state, action) => {
+          state.connectState == ConnectState.WaitingTxReply;
         })
         .addCase(sendTransaction.fulfilled, (state, action) => {
           const loadedState = action.payload.state;
