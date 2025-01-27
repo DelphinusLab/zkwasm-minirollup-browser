@@ -11,7 +11,7 @@
     "@types/sha256": "^0.2.2",
     "@types/sync-fetch": "^0.4.3",
     "cors": "^2.8.5",
-    "delphinus-curves": "git+https://github.com/DelphinusLab/delphinus-curves.git#yyu/hybridPackage",
+    "delphinus-curves": "github:DelphinusLab/delphinus-curves#xgao",
     "dotenv": "^16.4.5",
     "ethers": "^6.13.1",
     "typescript": "^5.4.5",

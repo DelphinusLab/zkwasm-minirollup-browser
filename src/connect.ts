@@ -69,6 +69,21 @@ export const sendTransaction = createAsyncThunk(
   }
 );
 
+export const sendExtrinsicTransaction = createAsyncThunk(
+  'client/sendExtrinsicTransaction',
+  async (params: {cmd: BigUint64Array, prikey: string }, { rejectWithValue }) => {
+    try {
+      const { cmd, prikey } = params;
+      const state: any = await rpc.sendExtrinsic(cmd, prikey);
+      console.log("(Data-Transaction)", state);
+      return state;
+    } catch (err: any) {
+      return rejectWithValue(err);
+    }
+  }
+);
+
+
 export const queryState = createAsyncThunk(
   'client/queryState',
   async (key: string, { rejectWithValue }) => {
