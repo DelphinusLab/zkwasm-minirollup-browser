@@ -83,7 +83,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
         .addCase(sendExtrinsicTransaction.fulfilled, (state, action) => {
           console.log("extrinsic message sent");
         })
-        .addCase(sendTransaction.rejected, (state, action) => {
+        .addCase(sendExtrinsicTransaction.rejected, (state, action) => {
           state.lastError = {
             errorInfo:`send extrinsic transaction rejected: ${action.payload}`,
             payload: action.payload,
