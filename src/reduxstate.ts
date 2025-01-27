@@ -12,12 +12,18 @@ export interface L1AccountInfo {
 }
 
 export class L2AccountInfo {
-  address: string;
+  #prikey: string;
+  pubkey: BN;
   constructor(address0x: string) {
-    this.address = address0x.substring(2);
+    this.#prikey= address0x.substring(2);
+    const pkey = PrivateKey.fromString(this.#prikey);
+    this.pubkey = pkey.publicKey.key.x.v;
   }
-  toBigInt(): bigint {
-    return BigInt("0x" + this.address);
+  getPrivateKey() {
+    return this.#prikey;
+  }
+  toHexStr(): string {
+    return this.pubkey.toString("hex")
   }
 }
 
@@ -154,14 +160,15 @@ const contractABI = {
   ],
 };
 
-async function deposit(chainId: number, tokenIndex: number, amount: number, prikey: L2AccountInfo, l1account: L1AccountInfo) {
+async function deposit(chainId: number, tokenIndex: number, amount: number, l2account: L2AccountInfo, l1account: L1AccountInfo) {
   try {
     const txReceipt = await withBrowserConnector(async (connector: DelphinusBrowserConnector) => {
       const chainidhex = "0x" + parseInt(process.env.REACT_APP_CHAIN_ID!).toString(16);
       await connector.switchNet(chainidhex);
-      const pkey = PrivateKey.fromString(prikey.address);
-      const pubkey = pkey.publicKey.key.x.v;
-      const leHexBN = new LeHexBN(bnToHexLe(pubkey));
+      //const pkey = PrivateKey.fromString(prikey.address);
+      //const pubkey = pkey.publicKey.key.x.v;
+      const pubkey = l2account.pubkey;
+      const leHexBN =new LeHexBN(bnToHexLe(pubkey));
       const pkeyArray = leHexBN.toU64Array();
       const proxyAddr = process.env.REACT_APP_DEPOSIT_CONTRACT!;
       const tokenAddr = process.env.REACT_APP_TOKEN_CONTRACT!;
