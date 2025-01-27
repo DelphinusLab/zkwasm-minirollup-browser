@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getConfig, sendTransaction, queryState, queryInitialState } from "./connect.js";
+import { getConfig, sendTransaction, queryState, queryInitialState, sendExtrinsicTransaction } from "./connect.js";
 
 export enum ConnectState{
   Init,
@@ -77,6 +77,19 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
             payload: action.payload,
           }
         })
+        .addCase(sendExtrinsicTransaction.pending, (state, action) => {
+          state.connectState == ConnectState.WaitingTxReply;
+        })
+        .addCase(sendExtrinsicTransaction.fulfilled, (state, action) => {
+          console.log("extrinsic message sent");
+        })
+        .addCase(sendTransaction.rejected, (state, action) => {
+          state.lastError = {
+            errorInfo:`send extrinsic transaction rejected: ${action.payload}`,
+            payload: action.payload,
+          }
+        })
+
         .addCase(queryState.fulfilled, (state, action) => {
           const loadedState = action.payload.state;
           const loadedPlayer = action.payload.player;
