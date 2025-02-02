@@ -112,10 +112,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
         })
         .addCase(queryInitialState.fulfilled, (state, action) => {
           const loadedState = action.payload.state;
-          state.userState = {
-            player: null,
-            state: loadedState,
-          }
+          state.userState = loadedState;
         })
         .addCase(queryInitialState.rejected, (state, action) => {
           state.connectState = ConnectState.ConnectionError;
