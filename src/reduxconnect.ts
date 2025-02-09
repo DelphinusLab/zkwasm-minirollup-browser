@@ -89,7 +89,9 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
             payload: action.payload,
           }
         })
-
+        .addCase(queryState.pending, (state, action) => {
+          state.connectState == ConnectState.QueryState;
+        })
         .addCase(queryState.fulfilled, (state, action) => {
           const loadedState = action.payload.state;
           const loadedPlayer = action.payload.player;
