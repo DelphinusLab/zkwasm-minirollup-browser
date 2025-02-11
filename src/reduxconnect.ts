@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, Draft } from '@reduxjs/toolkit';
 import { getConfig, sendTransaction, queryState, queryInitialState, sendExtrinsicTransaction } from "./connect.js";
 
 export enum ConnectState{
@@ -15,11 +15,10 @@ export enum ConnectState{
 
 export interface RequestError {
 	errorInfo: string,
-	payload: any,
 }
 
 interface UserState<PlayerInfo, GlobalState> {
-	player: PlayerInfo | null,
+	player: PlayerInfo,
 	state: GlobalState,
 }
 
@@ -53,15 +52,14 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 				.addCase(getConfig.rejected, (state, action) => {
 					state.lastError = {
 						errorInfo: `query config rejected: ${action.payload}`,
-						payload: action.payload,
 					}
 				})
 				.addCase(sendTransaction.pending, (state, action) => {
 					state.connectState = ConnectState.WaitingTxReply;
 				})
 				.addCase(sendTransaction.fulfilled, (state, action) => {
-					const loadedState = action.payload.state;
-					const loadedPlayer = action.payload.player;
+					const loadedState = action.payload.state ?? {} as Draft<GlobalState>;
+					const loadedPlayer = action.payload.player ?? {} as Draft<PlayerInfo>;
 					state.userState = {
 						player: loadedPlayer,
 						state: loadedState,
@@ -75,7 +73,6 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 				.addCase(sendTransaction.rejected, (state, action) => {
 					state.lastError = {
 						errorInfo:`send transaction rejected: ${action.payload}`,
-						payload: action.payload,
 					}
 				})
 				.addCase(sendExtrinsicTransaction.pending, (state, action) => {
@@ -87,15 +84,14 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 				.addCase(sendExtrinsicTransaction.rejected, (state, action) => {
 					state.lastError = {
 						errorInfo:`send extrinsic transaction rejected: ${action.payload}`,
-						payload: action.payload,
 					}
 				})
 				.addCase(queryState.pending, (state, action) => {
 					state.connectState = ConnectState.QueryState;
 				})
 				.addCase(queryState.fulfilled, (state, action) => {
-					const loadedState = action.payload.state;
-					const loadedPlayer = action.payload.player;
+					const loadedState = action.payload.state ?? {} as Draft<GlobalState>;
+					const loadedPlayer = action.payload.player ?? {} as Draft<PlayerInfo>;
 					state.userState = {
 						player: loadedPlayer,
 						state: loadedState,
@@ -109,17 +105,16 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 				.addCase(queryState.rejected, (state, action) => {
 					state.lastError = {
 						errorInfo: `query state rejected: ${action.payload}`,
-						payload: action.payload,
 					}
 					state.connectState = ConnectState.ConnectionError;
 				})
 				.addCase(queryInitialState.fulfilled, (state, action) => {
-					const loadedState = action.payload.state;
+					const loadedState = action.payload.state ?? {} as Draft<GlobalState>;
 					if(state.userState) {
 						state.userState.state = loadedState;
 					} else {
 						state.userState = {
-							player: null,
+							player: {} as Draft<PlayerInfo>,
 							state: loadedState
 						}
 					}
@@ -128,7 +123,6 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 					state.connectState = ConnectState.ConnectionError;
 					state.lastError = {
 						errorInfo: `query state rejected: ${action.payload}`,
-						payload: action.payload,
 					}
 				});
 
