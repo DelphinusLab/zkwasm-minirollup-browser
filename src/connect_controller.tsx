@@ -6,8 +6,8 @@ import { createCommand } from "zkwasm-minirollup-rpc";
 const CREATE_PLAYER = 1n;
 
 interface Props {
-  LoadingComponent: React.ComponentType<{ message: string; progress: number }>;
-  WelcomeComponent: React.ComponentType<{ onStartGame: () => void }>;
+  LoadingComponent: any;
+  WelcomeComponent: any;
   onStart: () => Promise<void>;
   onStartGameplay: () => void;
   useAppSelector: any;
