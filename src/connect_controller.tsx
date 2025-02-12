@@ -6,6 +6,7 @@ import { createCommand } from "zkwasm-minirollup-rpc";
 const CREATE_PLAYER = 1n;
 
 interface Props {
+  imageUrls: string[];
   LoadingComponent: any;
   WelcomeComponent: any;
   onStart: () => Promise<void>;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function ConnectController({
+  imageUrls,
   LoadingComponent,
   WelcomeComponent,
   onStart,
@@ -53,12 +55,6 @@ export function ConnectController({
 
   const loadImages = async () => {
     try {
-      const requireContext = require.context(
-        "./images",
-        true,
-        /\.(png|jpg|jpeg|gif)$/
-      );
-      const imageUrls = requireContext.keys().map(requireContext) as string[];
       await preloadImages(imageUrls);
       console.log("All images loaded");
     } catch (error) {
