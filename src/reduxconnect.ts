@@ -3,6 +3,7 @@ import { getConfig, sendTransaction, queryState, queryInitialState, sendExtrinsi
 
 export enum ConnectState{
 	Init,
+	OnStart,
 	Preloading,
 	Idle,
 	InstallPlayer,
