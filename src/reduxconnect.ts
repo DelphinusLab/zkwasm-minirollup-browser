@@ -65,7 +65,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 						player: loadedPlayer,
 						state: loadedState,
 					}
-					if(loadedPlayer != null) {
+					if(action.payload.player != null) {
 						state.connectState = ConnectState.Idle;
 					} else {
 						state.connectState = ConnectState.InstallPlayer;
@@ -97,7 +97,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 						player: loadedPlayer,
 						state: loadedState,
 					}
-					if(loadedPlayer != null) {
+					if(action.payload.player != null) {
 						state.connectState = ConnectState.Idle;
 					} else {
 						state.connectState = ConnectState.InstallPlayer;
