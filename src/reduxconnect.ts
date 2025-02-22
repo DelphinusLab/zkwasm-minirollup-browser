@@ -39,6 +39,10 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 			setConnectState: (state, action) => {
 				state.connectState = action.payload;
 			},
+			setLastError: (state, action) => {
+				state.lastError = action.payload;
+			},
+
 		},
 
 		extraReducers: (builder) => {
