@@ -33,6 +33,7 @@ export function ConnectController({
   const l1account = useAppSelector(AccountSlice.selectL1Account);
   const l2account = useAppSelector(AccountSlice.selectL2Account);
   const connectState = useAppSelector(selectConnectState);
+  const [queryingLogin, setQueryingLogin] = useState(false);
 
   async function preloadImages(imageUrls: string[]): Promise<void> {
     let loadedCount = 0;
@@ -56,7 +57,7 @@ export function ConnectController({
   const loadImages = async () => {
     try {
       await preloadImages(imageUrls);
-      console.log("All images loaded");
+      console.log(`${imageUrls.length} images loaded`);
     } catch (error) {
       console.error("Error loading images:", error);
     }
@@ -71,13 +72,6 @@ export function ConnectController({
       dispatch(setConnectState(ConnectState.OnStart));
     }
   }, [l1account]);
-
-  useEffect(() => {
-    if (l2account) {
-      dispatch(queryState(l2account!.getPrivateKey()));
-      onStartGameplay();
-    }
-  }, [l2account]);
 
   useEffect(() => {
     if (connectState == ConnectState.OnStart) {
@@ -99,8 +93,16 @@ export function ConnectController({
     }
   }, [connectState]);
 
+  const onLogin = () => {
+    if (!queryingLogin) {
+      dispatch(AccountSlice.loginL2AccountAsync(l1account!.address));
+      setQueryingLogin(true);
+    }
+  };
+
   const onStartGame = () => {
-    dispatch(AccountSlice.loginL2AccountAsync(l1account!.address));
+    dispatch(queryState(l2account!.getPrivateKey()));
+    onStartGameplay();
   };
 
   if (connectState == ConnectState.Init) {
@@ -112,7 +114,13 @@ export function ConnectController({
       <LoadingComponent message={"Preloading Textures"} progress={progress} />
     );
   } else if (connectState == ConnectState.Idle) {
-    return <WelcomeComponent onStartGame={onStartGame} />;
+    return (
+      <WelcomeComponent
+        isLogin={l2account != null}
+        onLogin={onLogin}
+        onStartGame={onStartGame}
+      />
+    );
   } else if (connectState == ConnectState.QueryConfig) {
     return <LoadingComponent message={"Querying Config"} progress={0} />;
   } else if (connectState == ConnectState.QueryState) {
