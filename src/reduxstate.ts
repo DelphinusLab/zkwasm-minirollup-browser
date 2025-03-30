@@ -29,12 +29,18 @@ export class L2AccountInfo {
 
 async function loginL1Account() {
   return await withBrowserConnector(async (web3: DelphinusBrowserConnector) => {
-    const chainidhex = "0x" + parseInt(process.env.REACT_APP_CHAIN_ID!).toString(16);
-    await web3.switchNet(chainidhex);
-    const i = await web3.getJsonRpcSigner();
-    return {
-        address: await i.getAddress(),
-        chainId: (await web3.getNetworkId()).toString()
+    try {
+      const chainidhex = "0x" + parseInt(process.env.REACT_APP_CHAIN_ID!).toString(16);
+      await web3.switchNet(chainidhex).catch((error) => {
+        throw new Error(`${error} Please switch to the correct network (Chain ID: ${process.env.REACT_APP_CHAIN_ID}) in MetaMask before proceeding.`);
+      });
+      const i = await web3.getJsonRpcSigner();
+      return {
+          address: await i.getAddress(),
+          chainId: (await web3.getNetworkId()).toString()
+      }
+    } catch (error) {
+      throw error;
     }
   });
 }
