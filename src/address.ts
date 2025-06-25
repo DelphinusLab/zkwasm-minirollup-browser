@@ -21,6 +21,13 @@ export async function signMessage(message: string) {
   return signature;
 }
 
+// RainbowKit 版本的消息签名函数
+export async function signMessageWithRainbowKit(message: string, rainbowKitHooks: any) {
+  // 直接使用 RainbowKit hooks 的签名功能
+  const signature = await rainbowKitHooks.signMessageAsync({ message });
+  return signature;
+}
+
 export async function switchNetwork(chainId: number) {
   await withBrowserConnector(async (provider: DelphinusBrowserConnector) => {
     if (!provider) {
@@ -30,6 +37,12 @@ export async function switchNetwork(chainId: number) {
       { chainId: "0x" + chainId.toString(16) },
     ]);
   });
+}
+
+// RainbowKit 版本的网络切换函数
+export async function switchNetworkWithRainbowKit(chainId: number, rainbowKitHooks: any) {
+  // 使用 RainbowKit hooks 的网络切换功能
+  await rainbowKitHooks.switchChain({ chainId });
 }
 
 

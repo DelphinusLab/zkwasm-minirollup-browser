@@ -3,3 +3,7 @@
 **/node_modules
 target
 pkg
+example/node_modules
+example/dist
+example/build
+example/.env
