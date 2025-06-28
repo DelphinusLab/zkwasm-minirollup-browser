@@ -38,6 +38,7 @@
     "build": "npx tsc",
     "postinstall": "npm run build",
     "dev:example": "npm run dev --workspace=example",
-    "install:example": "npm install --workspace=example"
+    "install:example": "npm install --workspace=example",
+    "clean": "rm -rf src/*.js && rm -rf src/*.d.ts && rm -rf src/*.js.map"
   }
 }

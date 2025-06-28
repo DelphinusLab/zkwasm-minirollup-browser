@@ -1,10 +1,19 @@
 import '@rainbow-me/rainbowkit/styles.css';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   resetAccountState,
   useZkWasmWallet,
-  type AccountState
+  getEnvConfig,
+  validateEnvConfig,
+  setProviderConfig,
+  withProvider,
+  type AccountState,
+  type DelphinusProvider,
+  // 从 SDK 导入 RainbowKit 组件
+  ConnectButton,
+  useConnectModal,
+  useAccount,
 } from '../../src/index';
 import './App.css';
 
@@ -13,34 +22,16 @@ interface RootState {
   account: AccountState;
 }
 
-// Safely get environment variables - moved outside component to avoid repeated calls
-const getEnvConfig = () => {
-  try {
-    const chainId = (import.meta.env?.REACT_APP_CHAIN_ID as string) || '';
-    
-    return {
-      walletConnectId: (import.meta.env?.REACT_APP_WALLETCONNECT_PROJECT_ID as string) || '',
-      mode: (import.meta.env?.MODE as string) || 'development',
-      depositContract: (import.meta.env?.REACT_APP_DEPOSIT_CONTRACT as string) || '',
-      tokenContract: (import.meta.env?.REACT_APP_TOKEN_CONTRACT as string) || '',
-      chainId
-    };
-  } catch {
-    return {
-      walletConnectId: '',
-      mode: 'development',
-      depositContract: '',
-      tokenContract: '',
-      chainId: ''
-    };
-  }
-};
-
-// Cache environment configuration
-const envConfig = getEnvConfig();
-
 function App() {
   const dispatch = useDispatch();
+  
+  // 获取环境配置（使用 useMemo 缓存）
+  const envConfig = React.useMemo(() => getEnvConfig(), []);
+  const [configErrors, setConfigErrors] = useState<string[]>([]);
+  
+  // RainbowKit hooks（从 SDK 导出）
+  const { openConnectModal } = useConnectModal();
+  const rainbowAccount = useAccount();
   
   // Use zkWasm SDK Hook to replace all wagmi hooks
   const wallet = useZkWasmWallet();
@@ -73,6 +64,40 @@ function App() {
   const isDepositing = status === 'Deposit';
   const lastError = status.includes('Error') ? status : null;
 
+  // 验证环境配置
+  useEffect(() => {
+    console.log('Environment config:', envConfig);
+    console.log('Chain ID from env:', envConfig.chainId);
+    console.log('WalletConnect ID from env:', envConfig.walletConnectId);
+    
+    const validation = validateEnvConfig();
+    if (!validation.isValid) {
+      setConfigErrors(validation.errors);
+    } else {
+      setConfigErrors([]);
+      // 设置 Provider 配置
+      setProviderConfig({ type: 'rainbow' });
+    }
+  }, [envConfig]);
+
+  // 测试 Provider 连接
+  const testProviderConnection = async () => {
+    try {
+      const result = await withProvider(async (provider: DelphinusProvider) => {
+        const networkId = await provider.getNetworkId();
+        return {
+          networkId: networkId.toString(),
+          isConnected: true
+        };
+      });
+      console.log('Provider test result:', result);
+      return result;
+    } catch (error) {
+      console.error('Provider test failed:', error);
+      return { isConnected: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  };
+
   // L1 account login
   const handleL1Login = useCallback(async () => {
     try {
@@ -102,11 +127,12 @@ function App() {
     });
     
     // Only attempt login when wallet is connected, has address, no L1 account, and status is Ready
+    // Also check that we're not in an error state or loading state
     if (isConnected && address && !l1Account && status === 'Ready') {
       console.log('Wallet connected, attempting L1 login...', { address, chainId });
       handleL1Login();
     }
-  }, [isConnected, address, l1Account, status, handleL1Login]);  // Remove chainId dependency to avoid repeated triggers
+  }, [isConnected, address, l1Account, status, handleL1Login]);
 
   // L2 account login
   const handleL2Login = async () => {
@@ -159,9 +185,70 @@ function App() {
   };
 
   // Wallet disconnect
-  const handleWalletDisconnect = () => {
-    reset(dispatch);
+  const handleWalletDisconnect = async () => {
+    try {
+      await reset(dispatch);
+      console.log('Wallet disconnected successfully');
+    } catch (error) {
+      console.error('Disconnect failed:', error);
+    }
   };
+
+  // 直接使用 Provider 进行签名测试
+  const handleTestSign = async () => {
+    try {
+      // 确保 RainbowKit provider 已初始化（如果使用的是 rainbow 类型）
+      const { getProvider, DelphinusRainbowConnector } = await import('../../src/provider');
+      const currentProvider = await getProvider();
+      
+      if (currentProvider instanceof DelphinusRainbowConnector && address && chainId) {
+        try {
+          await currentProvider.connect();
+        } catch (error) {
+          console.log('Initializing RainbowKit provider for sign test');
+          await currentProvider.initialize(address as `0x${string}`, chainId);
+        }
+      }
+      
+      const signature = await withProvider(async (provider: DelphinusProvider) => {
+        return await provider.sign('Hello from new Provider pattern!');
+      });
+      alert(`Signature: ${signature.substring(0, 20)}...`);
+    } catch (error) {
+      console.error('Sign test failed:', error);
+      alert(`Sign failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  // 如果有配置错误，显示错误信息
+  if (configErrors.length > 0) {
+    return (
+      <div className="App">
+        <div className="container">
+          <h1>Configuration Error</h1>
+          <div className="error-section">
+            <h2>Missing Environment Variables:</h2>
+            <ul>
+              {configErrors.map((error, index) => (
+                <li key={index} className="error-message">{error}</li>
+              ))}
+            </ul>
+            <div className="config-help">
+              <h3>How to fix:</h3>
+              <p>Create a <code>.env</code> file in the example directory with the following variables:</p>
+              <pre>
+{`REACT_APP_CHAIN_ID=11155111
+REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
+REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
+REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
+              </pre>
+              <p>You can copy from <code>env.example</code> and modify the values.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Render wallet connection buttons
   const renderWalletConnectButtons = () => {
@@ -173,12 +260,26 @@ function App() {
             <p>Address: {address}</p>
             <p>Chain ID: {chainId}</p>
           </div>
-          <button 
-            onClick={handleWalletDisconnect}
-            className="disconnect-btn"
-          >
-            Disconnect
-          </button>
+          <div className="wallet-actions">
+            <button 
+              onClick={handleWalletDisconnect}
+              className="disconnect-btn"
+            >
+              Disconnect
+            </button>
+            <button 
+              onClick={handleTestSign}
+              className="test-btn"
+            >
+              Test Sign
+            </button>
+            <button 
+              onClick={testProviderConnection}
+              className="test-btn"
+            >
+              Test Provider
+            </button>
+          </div>
         </div>
       );
     }
@@ -191,7 +292,53 @@ function App() {
   return (
     <div className="App">
       <div className="container">
-        <h1>zkWasm Mini Rollup - RainbowKit Integration</h1>
+        <h1>zkWasm Mini Rollup - New Provider Pattern</h1>
+        
+        {/* Provider Pattern Info */}
+        <div className="provider-info">
+          <h2>🚀 New Provider Design Pattern</h2>
+          <p>This example now uses the unified Provider pattern with:</p>
+          <ul>
+            <li>✅ Unified environment variable handling</li>
+            <li>✅ Automatic provider configuration</li>
+            <li>✅ Type-safe provider interface</li>
+            <li>✅ Support for all React project types</li>
+          </ul>
+        </div>
+
+        {/* RainbowKit Components Demo */}
+        <div className="rainbowkit-demo">
+          <h2>🌈 RainbowKit Components (Exported from SDK)</h2>
+          <p>These components are directly exported from our SDK - no need to install RainbowKit separately!</p>
+          
+          <div className="demo-section">
+            <h3>ConnectButton Component</h3>
+            <ConnectButton />
+            <p><small>This is RainbowKit's official ConnectButton component</small></p>
+          </div>
+
+          <div className="demo-section">
+            <h3>useConnectModal Hook</h3>
+            <button 
+              onClick={openConnectModal} 
+              disabled={!openConnectModal}
+              className="rainbow-btn"
+            >
+              Open Connect Modal
+            </button>
+            <p><small>Programmatically open RainbowKit's connect modal</small></p>
+          </div>
+
+          <div className="demo-section">
+            <h3>useAccount Hook</h3>
+            <div className="account-status">
+              <p><strong>Connected:</strong> {rainbowAccount.isConnected ? 'Yes' : 'No'}</p>
+              {rainbowAccount.address && <p><strong>Address:</strong> {rainbowAccount.address}</p>}
+              {rainbowAccount.chainId && <p><strong>Chain ID:</strong> {rainbowAccount.chainId}</p>}
+            </div>
+            <p><small>Direct access to wallet state via Wagmi hooks</small></p>
+          </div>
+        </div>
         
         {/* Wallet Connection */}
         {renderWalletConnectButtons()}
@@ -339,7 +486,7 @@ function App() {
         <div className="config-section">
           <h2>Configuration Information</h2>
           <div className="config-info">
-            <p><strong>Target Chain ID:</strong> {chainId}</p>
+            <p><strong>Target Chain ID:</strong> {envConfig.chainId}</p>
             <p><strong>Current Environment:</strong> {envConfig.mode}</p>
             <p><strong>WalletConnect Project ID:</strong> {
               envConfig.walletConnectId ? 'Configured' : 'Not Configured'
@@ -350,6 +497,14 @@ function App() {
             <p><strong>Token Contract Address:</strong> {
               envConfig.tokenContract ? envConfig.tokenContract : 'Not Configured'
             }</p>
+          </div>
+          
+          <div className="provider-status">
+            <h3>Provider Pattern Status</h3>
+            <p>✅ Using unified Provider design pattern</p>
+            <p>✅ Environment variables loaded via adapter</p>
+            <p>✅ Type-safe provider interface</p>
+            <p>✅ Automatic provider configuration</p>
           </div>
         </div>
       </div>

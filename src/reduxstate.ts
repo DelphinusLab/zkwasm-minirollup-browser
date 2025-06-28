@@ -1,48 +1,13 @@
 import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { useState, useEffect, useCallback } from 'react';
 import BN from "bn.js";
 import { PrivateKey, bnToHexLe } from "delphinus-curves/src/altjubjub";
 import { LeHexBN } from 'zkwasm-minirollup-rpc';
 import { signMessage } from "./address.js";
-import { withBrowserConnector } from "./client.js";
-import { DelphinusBrowserConnector } from './provider.js';
-import { RainbowKitAdapter, reinitializeAdapter, withRainbowKitConnector } from './rainbow-adapter.js';
-
-// 统一的环境变量获取函数
-function getChainId(): number {
-  let result: number;
-  
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-    const envValue = (import.meta as any).env.REACT_APP_CHAIN_ID || (import.meta as any).env.VITE_CHAIN_ID || '11155111';
-    result = parseInt(envValue);
-  } else if (typeof process !== 'undefined' && process.env) {
-    const envValue = process.env.REACT_APP_CHAIN_ID || '11155111';
-    result = parseInt(envValue);
-  } else {
-    result = 11155111; // 默认 Sepolia testnet
-  }
-  
-  return result;
-}
-
-function getDepositContract(): string {
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-    return (import.meta as any).env.REACT_APP_DEPOSIT_CONTRACT || (import.meta as any).env.VITE_DEPOSIT_CONTRACT || '';
-  } else if (typeof process !== 'undefined' && process.env) {
-    return process.env.REACT_APP_DEPOSIT_CONTRACT || '';
-  } else {
-    return '';
-  }
-}
-
-function getTokenContract(): string {
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-    return (import.meta as any).env.REACT_APP_TOKEN_CONTRACT || (import.meta as any).env.VITE_TOKEN_CONTRACT || '';
-  } else if (typeof process !== 'undefined' && process.env) {
-    return process.env.REACT_APP_TOKEN_CONTRACT || '';
-  } else {
-    return '';
-  }
-}
+import { withProvider } from "./provider.js";
+import { DelphinusProvider } from './provider.js';
+import { withRainbowKitConnector, reinitializeRainbowProvider } from './rainbow-adapter.js';
+import { getChainId, getDepositContract, getTokenContract, getEnvConfig } from './env-adapter.js';
 
 export interface L1AccountInfo {
   address: string;
@@ -104,7 +69,7 @@ export class L2AccountInfo {
 }
 
 async function loginL1Account() {
-  return await withBrowserConnector(async (web3: DelphinusBrowserConnector) => {
+  return await withProvider(async (web3: DelphinusProvider) => {
     const chainidhex = "0x" + getChainId().toString(16);
     await web3.switchNet(chainidhex);
     const i = await web3.getJsonRpcSigner();
@@ -127,7 +92,7 @@ async function loginL1AccountWithRainbowKit(rainbowKitHooks: any) {
     throw new Error('Wallet connection required - please connect your wallet using the modal');
   }
 
-  return await withRainbowKitConnector(async (adapter: RainbowKitAdapter) => {
+  return await withRainbowKitConnector(async (adapter: DelphinusProvider) => {
     const targetChainId = getChainId();
     
     console.log('Target chain ID:', targetChainId, 'Current chain ID:', rainbowKitHooks.chainId);
@@ -163,7 +128,7 @@ async function loginL1AccountWithRainbowKit(rainbowKitHooks: any) {
     } catch (error) {
       console.error('Failed to get network ID, reinitializing adapter...');
       // 如果获取网络 ID 失败，重新初始化适配器
-      await reinitializeAdapter(adapter, rainbowKitHooks.address, targetChainId);
+      await reinitializeRainbowProvider(rainbowKitHooks.address, targetChainId);
       currentNetwork = await adapter.getNetworkId();
     }
     
@@ -315,7 +280,7 @@ const contractABI = {
 
 async function deposit(chainId: number, tokenIndex: number, amount: number, l2account: L2AccountInfo, l1account: L1AccountInfo) {
   try {
-    const txReceipt = await withBrowserConnector(async (connector: DelphinusBrowserConnector) => {
+    const txReceipt = await withProvider(async (connector: DelphinusProvider) => {
       const chainidhex = "0x" + getChainId().toString(16);
       await connector.switchNet(chainidhex);
       //const pkey = PrivateKey.fromString(prikey.address);
@@ -371,7 +336,7 @@ async function depositWithRainbowKit(
   rainbowKitHooks: any
 ) {
   try {
-    const txReceipt = await withRainbowKitConnector(async (adapter: RainbowKitAdapter) => {
+    const txReceipt = await withRainbowKitConnector(async (adapter: DelphinusProvider) => {
       const targetChainId = getChainId();
       
       console.log('Deposit: checking chain ID', { current: rainbowKitHooks.chainId, target: targetChainId });
@@ -617,8 +582,8 @@ export const accountSlice = createSlice({
   name: 'account',
   initialState,
   reducers: {
-    setL1Account: (state, account) => {
-      state.l1Account!.address = account.payload;
+    setL1Account: (state, action) => {
+      state.l1Account = action.payload;
     },
     resetAccountState: (state) => {
       state.l1Account = undefined;
@@ -751,21 +716,358 @@ export const { setL1Account, resetAccountState } = accountSlice.actions;
 
 export default accountSlice.reducer;
 
-// SDK React Hook - 封装所有 wagmi 功能
+// SDK React Hook - 使用新的 Provider 模式
 export function useZkWasmWallet() {
-  // 这个函数需要在实际使用时由外部提供 wagmi hooks
-  // 这里我们返回一个接口，让外部项目知道需要什么
+  const [isConnected, setIsConnected] = useState(false);
+  const [address, setAddress] = useState<string | undefined>(undefined);
+  const [chainId, setChainId] = useState<number | undefined>(undefined);
+
+  // 检查钱包连接状态
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        // 直接检查 ethereum 对象而不通过 provider
+        if (!(window as any).ethereum) {
+          setIsConnected(false);
+          setAddress(undefined);
+          setChainId(undefined);
+          return;
+        }
+
+        const accounts = await (window as any).ethereum.request({ 
+          method: 'eth_accounts' 
+        }) || [];
+        
+        if (accounts.length > 0) {
+          // 如果有账户，获取网络信息
+          try {
+            const result = await withProvider(async (provider) => {
+              const networkId = await provider.getNetworkId();
   return {
-    // 钱包连接和 L1 登录的完整功能
-    connectAndLoginL1: (dispatch: any) => {
-      throw new Error('useZkWasmWallet hook must be initialized with wagmi providers. Please see documentation.');
-    },
-    // 其他功能...
-    isConnected: false,
-    address: undefined,
-    chainId: undefined,
-    disconnect: () => {},
-    reset: (dispatch: any) => dispatch(resetAccountState()),
+                isConnected: true,
+                address: accounts[0],
+                chainId: Number(networkId)
+              };
+            });
+            
+            setIsConnected(result.isConnected);
+            setAddress(result.address);
+            setChainId(result.chainId);
+          } catch (error) {
+            // 即使有账户，如果 provider 有问题也设为未连接
+            console.warn('Provider error while checking connection:', error);
+            setIsConnected(false);
+            setAddress(undefined);
+            setChainId(undefined);
+          }
+        } else {
+          setIsConnected(false);
+          setAddress(undefined);
+          setChainId(undefined);
+        }
+      } catch (error) {
+        // Provider 不可用或未连接
+        console.warn('Connection check error:', error);
+        setIsConnected(false);
+        setAddress(undefined);
+        setChainId(undefined);
+      }
+    };
+
+    checkConnection();
+
+    // 监听账户变化
+    if ((window as any).ethereum) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length > 0) {
+          setIsConnected(true);
+          setAddress(accounts[0]);
+        } else {
+          setIsConnected(false);
+          setAddress(undefined);
+        }
+      };
+
+      const handleChainChanged = (chainId: string) => {
+        setChainId(parseInt(chainId, 16));
+      };
+
+      (window as any).ethereum.on('accountsChanged', handleAccountsChanged);
+      (window as any).ethereum.on('chainChanged', handleChainChanged);
+
+      return () => {
+        (window as any).ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        (window as any).ethereum.removeListener('chainChanged', handleChainChanged);
+      };
+    }
+  }, []);
+
+  const connectAndLoginL1 = useCallback(async (dispatch: any) => {
+    try {
+      // 首先检查是否需要初始化 RainbowKit provider
+      const { getProvider, DelphinusRainbowConnector } = await import('./provider');
+      
+      // 如果是 rainbow 类型，需要先获取账户信息来初始化
+      let currentProvider;
+      try {
+        currentProvider = await getProvider();
+      } catch (error) {
+        // Provider 还未创建，这是正常的
+        console.log('Provider not yet created, will create after wallet connection');
+      }
+      
+      // 如果是 RainbowKit provider 但未初始化，需要先连接钱包获取信息
+      if (currentProvider instanceof DelphinusRainbowConnector) {
+        // 检查是否已经初始化
+        try {
+          await currentProvider.connect();
+        } catch (error) {
+          // 未初始化，需要先获取账户信息
+          console.log('RainbowKit provider needs initialization');
+          
+          // 直接从 MetaMask 获取账户信息
+          if (typeof window !== 'undefined' && (window as any).ethereum) {
+            const accounts = await (window as any).ethereum.request({ 
+              method: 'eth_requestAccounts' 
+            });
+            const chainId = await (window as any).ethereum.request({ 
+              method: 'eth_chainId' 
+            });
+            
+            if (accounts.length > 0) {
+              // 初始化 RainbowKit provider
+              await currentProvider.initialize(accounts[0], parseInt(chainId, 16));
+            }
+          }
+        }
+      }
+      
+      const result = await withProvider(async (provider) => {
+        // 连接钱包
+        const connectedAddress = await provider.connect();
+        const networkId = await provider.getNetworkId();
+        
+        // 更新状态
+        setIsConnected(true);
+        setAddress(connectedAddress);
+        setChainId(Number(networkId));
+        
+        // 执行 L1 登录
+        const l1Account: L1AccountInfo = {
+          address: connectedAddress,
+          chainId: networkId.toString()
+        };
+        
+        return l1Account;
+      });
+      
+      // 更新 Redux 状态
+      dispatch(setL1Account(result));
+      return result;
+    } catch (error) {
+      console.error('Connect and L1 login failed:', error);
+      throw error;
+    }
+  }, []);
+
+  const loginL2 = useCallback(async (dispatch: any, appName: string = "0xAUTOMATA") => {
+    if (!address) {
+      throw new Error('Wallet not connected');
+    }
+
+    try {
+      // 确保 RainbowKit provider 已初始化
+      const { getProvider, DelphinusRainbowConnector } = await import('./provider');
+      const currentProvider = await getProvider();
+      
+      if (currentProvider instanceof DelphinusRainbowConnector && address && chainId) {
+        try {
+          await currentProvider.connect();
+        } catch (error) {
+          // 如果连接失败，重新初始化
+          console.log('Re-initializing RainbowKit provider for L2 login');
+          await currentProvider.initialize(address as `0x${string}`, chainId);
+        }
+      }
+      
+      const result = await withProvider(async (provider) => {
+        // 使用 provider 签名 - 注意：应该签名 appName，而不是 address
+        const signature = await provider.sign(appName);
+        console.log("signed result (new provider pattern)", signature);
+        
+        // 创建 L2 账户 - 使用签名结果的前34个字符（包含0x前缀）
+        const l2Account = new L2AccountInfo(signature.substring(0, 34));
+        return l2Account;
+      });
+      
+      // 更新 Redux 状态
+      dispatch(loginL2AccountWithRainbowKitAsync.fulfilled(result, '', { appName, rainbowKitHooks: {} }));
+      return result;
+    } catch (error) {
+      console.error('L2 login failed:', error);
+      dispatch(loginL2AccountWithRainbowKitAsync.rejected(error as any, '', { appName, rainbowKitHooks: {} }));
+      throw error;
+    }
+  }, [address, chainId]);
+
+  const deposit = useCallback(async (dispatch: any, params: {
+    tokenIndex: number;
+    amount: number;
+    l2account: L2AccountInfo;
+    l1account: L1AccountInfo;
+  }) => {
+    if (!address || !chainId) {
+      throw new Error('Wallet not connected');
+    }
+
+    try {
+      dispatch(depositWithRainbowKitAsync.pending('', { ...params, rainbowKitHooks: {} }));
+      
+      // 确保 RainbowKit provider 已初始化
+      const { getProvider, DelphinusRainbowConnector } = await import('./provider');
+      const currentProvider = await getProvider();
+      
+      if (currentProvider instanceof DelphinusRainbowConnector && address && chainId) {
+        try {
+          await currentProvider.connect();
+        } catch (error) {
+          // 如果连接失败，重新初始化
+          console.log('Re-initializing RainbowKit provider for deposit');
+          await currentProvider.initialize(address as `0x${string}`, chainId);
+        }
+      }
+      
+      const result = await withProvider(async (provider) => {
+        // 确保网络正确
+        const targetChainId = getChainId();
+        const chainidhex = "0x" + targetChainId.toString(16);
+        await provider.switchNet(chainidhex);
+        
+        // 计算 PID 数组
+        const pubkey = params.l2account.pubkey;
+        const leHexBN = new LeHexBN(bnToHexLe(pubkey));
+        const pkeyArray = leHexBN.toU64Array();
+        
+        // 获取合约地址
+        const envConfig = getEnvConfig();
+        const proxyAddr = envConfig.depositContract;
+        const tokenAddr = envConfig.tokenContract;
+        
+        console.log('Deposit: contract addresses', { proxyAddr, tokenAddr });
+        
+        if (!proxyAddr || !tokenAddr) {
+          throw new Error("Deposit contract or token contract address not configured");
+        }
+        
+        // 获取合约实例
+        const tokenContract = await provider.getContractWithSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
+        const tokenContractReader = provider.getContractWithoutSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
+        
+        // 检查余额和授权
+        const balance = await tokenContractReader.getEthersContract().balanceOf(params.l1account.address);
+        const allowance = await tokenContractReader.getEthersContract().allowance(params.l1account.address, proxyAddr);
+        
+        console.log("Deposit: token balance:", balance.toString());
+        console.log("Deposit: allowance:", allowance.toString());
+        
+        // 计算金额（转换为 wei）
+        let a = new BN(params.amount);
+        let b = new BN("10").pow(new BN(18));
+        const amountWei = a.mul(b);
+        
+        console.log("Deposit: amount in wei:", amountWei.toString());
+        
+        // 如果授权不足，先进行授权
+        if (allowance < amountWei) {
+          console.log("Deposit: need to approve, current allowance insufficient");
+          if (balance >= amountWei) {
+            console.log("Deposit: approving token spend...");
+            const tx = await tokenContract.getEthersContract().approve(proxyAddr, balance);
+            console.log("Deposit: approval transaction sent:", tx.hash);
+            await tx.wait();
+            console.log("Deposit: approval transaction confirmed");
+          } else {
+            throw Error(`Not enough balance for deposit. Required: ${amountWei.toString()}, Available: ${balance.toString()}`);
+          }
+        }
+        
+        // 执行存款交易
+        const proxyContract = await provider.getContractWithSigner(proxyAddr, JSON.stringify(contractABI.proxyABI));
+        console.log("Deposit: calling topup function with params:", {
+          tokenIndex: Number(params.tokenIndex),
+          pid1: pkeyArray[1],
+          pid2: pkeyArray[2], 
+          amount: BigInt(amountWei.toString())
+        });
+        
+        const tx = await proxyContract.getEthersContract().topup(
+          Number(params.tokenIndex),
+          pkeyArray[1],
+          pkeyArray[2],
+          BigInt(amountWei.toString()),
+        );
+        console.log("Deposit: topup transaction sent:", tx.hash);
+        const txReceipt = await tx.wait();
+        console.log("Deposit: topup transaction confirmed:", txReceipt);
+        
+        // 返回符合预期格式的交易回执
+        return {
+          hash: txReceipt.hash,
+          blockNumber: txReceipt.blockNumber,
+          blockHash: txReceipt.blockHash,
+          gasUsed: txReceipt.gasUsed?.toString(),
+          status: txReceipt.status,
+          to: txReceipt.to,
+          from: txReceipt.from
+        };
+      });
+      
+      dispatch(depositWithRainbowKitAsync.fulfilled(result, '', { ...params, rainbowKitHooks: {} }));
+      return result;
+    } catch (error) {
+      console.error('Deposit failed:', error);
+      dispatch(depositWithRainbowKitAsync.rejected(error as any, '', { ...params, rainbowKitHooks: {} }));
+      throw error;
+    }
+  }, [address, chainId]);
+
+  const disconnect = useCallback(async () => {
+    try {
+      // 只清理 provider 实例，但保留配置，这样可以重新连接
+      const { clearProviderInstance } = await import('./provider');
+      clearProviderInstance();
+      
+      // 如果是浏览器环境，提示用户
+      if (typeof window !== 'undefined' && window.ethereum) {
+        console.log('Provider disconnected. To fully disconnect, please disconnect from MetaMask manually.');
+      }
+    } catch (error) {
+      console.error('Disconnect error:', error);
+    } finally {
+      // 清理本地状态
+      setIsConnected(false);
+      setAddress(undefined);
+      setChainId(undefined);
+    }
+  }, []);
+
+  const reset = useCallback(async (dispatch: any) => {
+    await disconnect();
+    dispatch(resetAccountState());
+  }, [disconnect]);
+
+  return {
+    // 状态
+    isConnected,
+    address,
+    chainId,
+    
+    // 动作
+    connectAndLoginL1,
+    loginL2,
+    deposit,
+    disconnect,
+    reset,
   };
 }
 

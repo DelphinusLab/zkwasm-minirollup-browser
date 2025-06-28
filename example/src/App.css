@@ -395,4 +395,254 @@ h2 {
   border: 1px solid #e9ecef;
   border-radius: 10px;
   background: white;
+}
+
+/* Provider Pattern Info */
+.provider-info {
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0f8ff 100%);
+  border: 2px solid #28a745;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.provider-info h2 {
+  color: #28a745;
+  border-bottom: 2px solid #28a745;
+  margin-bottom: 16px;
+}
+
+.provider-info ul {
+  list-style: none;
+  padding: 0;
+}
+
+.provider-info li {
+  margin: 8px 0;
+  font-weight: 500;
+}
+
+/* Wallet Actions */
+.wallet-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.disconnect-btn,
+.test-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.disconnect-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.disconnect-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.test-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.test-btn:hover {
+  background: #138496;
+  transform: translateY(-1px);
+}
+
+/* Error Section */
+.error-section {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+}
+
+.error-section h2 {
+  color: #721c24;
+  border-bottom: 2px solid #721c24;
+  margin-bottom: 16px;
+}
+
+.error-section ul {
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.error-section li {
+  margin: 8px 0;
+  color: #721c24;
+}
+
+/* Config Help */
+.config-help {
+  margin-top: 20px;
+  padding: 16px;
+  background: #e2e3e5;
+  border-radius: 8px;
+}
+
+.config-help h3 {
+  color: #495057;
+  margin-bottom: 12px;
+}
+
+.config-help pre {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.config-help code {
+  background: #f8f9fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Provider Status */
+.provider-status {
+  margin-top: 20px;
+  padding: 16px;
+  background: #d1ecf1;
+  border: 1px solid #bee5eb;
+  border-radius: 8px;
+}
+
+.provider-status h3 {
+  color: #0c5460;
+  margin-bottom: 12px;
+}
+
+.provider-status p {
+  margin: 6px 0;
+  color: #0c5460;
+  font-weight: 500;
+}
+
+/* RainbowKit 演示样式 */
+.rainbowkit-demo {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(255, 154, 158, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.rainbowkit-demo h2 {
+  color: #2d3748;
+  border-bottom: 3px solid #ff6b9d;
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+  font-size: 1.8rem;
+}
+
+.rainbowkit-demo > p {
+  color: #4a5568;
+  font-size: 16px;
+  margin-bottom: 24px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.demo-section {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 107, 157, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.demo-section h3 {
+  color: #2d3748;
+  margin-bottom: 16px;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-section h3:before {
+  content: "🎯";
+  font-size: 1.2rem;
+}
+
+.rainbow-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 8px 0;
+}
+
+.rainbow-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.rainbow-btn:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.account-status {
+  background: #f7fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.account-status p {
+  margin: 8px 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+}
+
+.demo-section small {
+  color: #718096;
+  font-style: italic;
+  display: block;
+  margin-top: 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .rainbowkit-demo {
+    padding: 20px;
+  }
+  
+  .demo-section {
+    padding: 16px;
+  }
+  
+  .demo-section h3 {
+    font-size: 1.1rem;
+  }
 } 

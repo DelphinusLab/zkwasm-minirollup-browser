@@ -1,15 +1,33 @@
-# zkWasm Mini Rollup - RainbowKit Integration Example
+# zkWasm Mini Rollup - New Provider Pattern Example
 
-This is a complete example application demonstrating how to integrate RainbowKit wallet connection functionality in a zkWasm Mini Rollup project.
+This is a complete example application demonstrating how to use the new **Provider Design Pattern** in a zkWasm Mini Rollup project. The new pattern provides a unified interface for wallet connections and blockchain interactions.
 
-## Features
+## 🚀 New Features
 
-- 🌈 **RainbowKit Wallet Connection** - Support for multiple wallets (MetaMask, WalletConnect, Coinbase Wallet, etc.)
-- 🔗 **Dynamic Chain Configuration** - Automatically configure supported blockchain networks based on environment variables
-- 🔑 **L1/L2 Account Management** - Complete Ethereum mainnet and zkWasm Rollup account demonstration
-- 💰 **Deposit Functionality** - Complete flow for depositing from L1 to L2
-- 📊 **State Management** - Redux-based application state management
-- 🎨 **Modern UI** - Responsive design and beautiful user interface
+- ✅ **Unified Provider Interface** - Single API for all wallet types and blockchain interactions
+- ✅ **Automatic Environment Configuration** - Simplified environment variable handling across all React project types
+- ✅ **Type-Safe Provider System** - Full TypeScript support with comprehensive type checking
+- ✅ **Cross-Platform Compatibility** - Works with CRA, Next.js, Vite, and custom build tools
+- ✅ **Runtime Configuration** - Support for both environment variables and runtime configuration
+- ✅ **Error Handling & Validation** - Built-in validation and error handling for all configurations
+
+## Architecture Overview
+
+### Provider Pattern Benefits
+
+The new Provider pattern replaces the previous scattered provider implementations with:
+
+1. **Unified Interface**: All provider types implement the same `DelphinusProvider` interface
+2. **Global Management**: Single `ProviderManager` handles all provider instances
+3. **Type Safety**: Full TypeScript support with comprehensive type definitions
+4. **Flexibility**: Support for different provider types through configuration
+
+### Supported Provider Types
+
+- **Browser Provider** (`browser`) - MetaMask and browser-based wallets
+- **Rainbow Provider** (`rainbow`) - RainbowKit integration (optional)
+- **Read-Only Provider** (`readonly`) - For read-only blockchain operations
+- **Wallet Provider** (`wallet`) - Private key-based wallets
 
 ## Quick Start
 
@@ -23,7 +41,7 @@ npm install
 
 ### 2. Configure Environment Variables
 
-Copy the example environment variables file and configure:
+Copy the example environment variables file:
 
 ```bash
 cp example/env.example example/.env
@@ -35,18 +53,25 @@ Configure the following variables in `example/.env`:
 # WalletConnect Project ID (Required)
 REACT_APP_WALLETCONNECT_PROJECT_ID=your_project_id_here
 
-# Target Chain ID (Optional, defaults to 1)
-REACT_APP_CHAIN_ID=1
+# Target Chain ID (Required)
+REACT_APP_CHAIN_ID=11155111
 
-# Contract Addresses (Configure according to your deployment)
+# Contract Addresses (Required)
 REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
 REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
 ```
 
+#### Environment Variable Naming
+
+The new Provider pattern uses **unified environment variable naming** across all React project types:
+
+- **All projects use `REACT_APP_` prefix** - Works with CRA, Next.js, Vite, and custom builds
+- **Automatic fallback** - Falls back to global variables if environment variables are not available
+- **Runtime configuration** - Supports setting configuration at runtime
+
 #### Chain ID Configuration
 
-After setting `REACT_APP_CHAIN_ID`, RainbowKit will only display the corresponding chain:
-
+Common Chain IDs:
 - `1` - Ethereum Mainnet
 - `11155111` - Sepolia Testnet  
 - `137` - Polygon
@@ -55,8 +80,6 @@ After setting `REACT_APP_CHAIN_ID`, RainbowKit will only display the correspondi
 - `10` - Optimism
 - `56` - BSC (Binance Smart Chain)
 - `31337` - Localhost (Development Environment)
-
-**Note:** RainbowKit will only display the network corresponding to the configured chain ID, ensuring users can only connect to the correct chain.
 
 ### 3. Get WalletConnect Project ID
 
@@ -72,201 +95,231 @@ npm run dev:example
 
 The application will start at `http://localhost:5173`.
 
-## Feature Demonstration
+## New Provider Pattern Usage
 
-### 1. Wallet Connection
+### Basic Configuration
 
-- Click the "Connect Wallet" button
-- Select your preferred wallet (MetaMask, WalletConnect, etc.)
-- The app will automatically detect and display wallet information
-
-### 2. L1 Account Login
-
-- After connecting your wallet, click "Login L1 Account"
-- The app will automatically switch to the configured target chain
-- Display Ethereum mainnet account information and available functions
-
-### 3. L2 Account Login
-
-- Click the "Generate L2 Account" button
-- The system will ask you to sign the fixed message "0xAUTOMATA"
-- The signature result will be used as a private key to generate a deterministic L2 key pair
-- Display L2 public key, PID[1], PID[2] and available functions
-
-**Important:** L2 accounts are generated by signing the fixed message "0xAUTOMATA" to create deterministic key pairs. This means:
-- All users sign the same message to generate their unique L2 key pairs
-- L2 key pairs are independent of specific wallet addresses but still require wallet signatures
-- Each wallet will produce different signatures, thus generating different L2 key pairs
-- PID[1] and PID[2] are identifiers converted from public keys, used for L2 transactions
-
-### 4. Deposit Operation
-
-- Ensure both L1 and L2 accounts are connected/generated
-- Enter deposit amount (ETH)
-- Click "Deposit to L2" button
-- Confirm transaction and wait for completion
-
-**Deposit Flow:**
-1. L1 account authorizes the contract to use your tokens
-2. Call the deposit contract to lock funds on L1
-3. L2 system detects the deposit and increases corresponding balance on L2
-4. Use L2 public key as receiving address
-
-## Technical Architecture
-
-### Key Generation Mechanism
-
-**L1 Account:**
-- Directly use wallet address
-- Used for L1 on-chain transactions and contract interactions
-
-**L2 Account:**
-- Generate deterministic key pair by signing fixed message "0xAUTOMATA"
-- Signature result → Private key → Public key → PID[1], PID[2]
-- Uses Alt-BabyJubJub elliptic curve cryptography
-- PID used to identify accounts in L2 system
-
-### State Management
-
-Uses Redux Toolkit to manage application state:
+The application automatically configures the provider on startup:
 
 ```typescript
-interface AccountState {
-  l1Account?: L1AccountInfo;      // L1 wallet address and chain info
-  l2account?: L2AccountInfo;      // L2 key pair (private key + public key)
-  status: string;                 // Current operation status
+import { setProviderConfig, withProvider, getEnvConfig } from 'zkwasm-minirollup-browser';
+
+// Configure provider type
+setProviderConfig({ type: 'browser' });
+
+// Use provider for operations
+const result = await withProvider(async (provider) => {
+  return await provider.connect();
+});
+```
+
+### Environment Configuration
+
+```typescript
+import { getEnvConfig, validateEnvConfig } from 'zkwasm-minirollup-browser';
+
+// Get environment configuration
+const config = getEnvConfig();
+
+// Validate configuration
+const validation = validateEnvConfig();
+if (!validation.isValid) {
+  console.error('Configuration errors:', validation.errors);
 }
 ```
 
-### Main Components
+### Direct Provider Usage
 
-- **App.tsx** - Main application component containing all feature demonstrations
-- **main.tsx** - Application entry point, configures providers
-- **wagmi-config.ts** - Dynamic chain configuration
-- **rainbow-adapter.ts** - RainbowKit adapter
+```typescript
+import { withProvider } from 'zkwasm-minirollup-browser';
 
-### Supported Operations
+// Sign a message
+const signature = await withProvider(async (provider) => {
+  return await provider.sign('Hello World!');
+});
 
-#### L1 Account Functions:
-- View Ethereum mainnet balance
-- Deposit to L2
-- Interact with mainnet contracts
+// Get network information
+const networkInfo = await withProvider(async (provider) => {
+  const networkId = await provider.getNetworkId();
+  return { networkId: networkId.toString() };
+});
+```
 
-#### L2 Account Functions:
-- View L2 Rollup balance
-- Fast transactions on L2
-- Interact with L2 contracts
-- Withdraw funds to L1
+## Feature Demonstration
+
+### 1. Automatic Provider Configuration
+
+- The app automatically detects and validates environment variables
+- Shows configuration errors with helpful instructions if variables are missing
+- Automatically configures the appropriate provider type
+
+### 2. Wallet Connection with Provider Pattern
+
+- Uses the unified provider interface for all wallet interactions
+- Provides "Test Sign" and "Test Provider" buttons to demonstrate direct provider usage
+- Shows provider status and configuration information
+
+### 3. L1 Account Management
+
+- Uses the new provider system for L1 account operations
+- Automatic wallet connection and network switching
+- Display account information and available functions
+
+### 4. L2 Account Management
+
+- L2 key generation using the provider's sign functionality
+- Deterministic key pair generation from wallet signatures
+- Display L2 public key, PID information, and capabilities
+
+### 5. Deposit Operations
+
+- Complete deposit flow using the new provider pattern
+- Enhanced error handling and validation
+- Real-time status updates and transaction tracking
+
+## Technical Architecture
+
+### Provider Interface
+
+All providers implement the unified `DelphinusProvider` interface:
+
+```typescript
+interface DelphinusProvider {
+  connect(): Promise<string>;
+  close(): Promise<void>;
+  getNetworkId(): Promise<bigint>;
+  switchNet(chainId: number): Promise<void>;
+  sign(message: string): Promise<string>;
+  getJsonRpcSigner(): Promise<JsonRpcSigner>;
+  getContractWithSigner(address: string, abi: any[]): Promise<Contract>;
+  getContractWithoutSigner(address: string, abi: any[]): Promise<Contract>;
+  subscribeEvent(contract: Contract, eventName: string, callback: Function): Promise<void>;
+  onAccountChange(callback: (accounts: string[]) => void): Promise<void>;
+}
+```
+
+### Environment Configuration
+
+```typescript
+interface EnvConfig {
+  walletConnectId: string;
+  mode: string;
+  depositContract: string;
+  tokenContract: string;
+  chainId: string;
+}
+```
+
+### Provider Configuration
+
+```typescript
+interface ProviderConfig {
+  type: 'browser' | 'rainbow' | 'readonly' | 'wallet';
+  providerUrl?: string;
+  privateKey?: string;
+  chainId?: number;
+}
+```
+
+### State Management
+
+Uses Redux Toolkit with the same state structure but enhanced provider integration:
+
+```typescript
+interface AccountState {
+  l1Account?: L1AccountInfo;
+  l2account?: L2AccountInfo;
+  status: string;
+}
+```
+
+## Migration from Old Pattern
+
+### Key Changes
+
+1. **Unified Imports**: All provider functionality imported from main package
+2. **Automatic Configuration**: No need for manual provider setup
+3. **Environment Variables**: Simplified to use only `REACT_APP_` prefix
+4. **Error Handling**: Built-in validation and error reporting
+
+### Breaking Changes
+
+- Removed direct RainbowKit/Wagmi dependencies from main app
+- Environment variable names standardized to `REACT_APP_` prefix
+- Provider configuration now handled automatically
 
 ## Development Guide
 
-### Custom Chain Configuration
+### Adding Custom Provider Types
 
-Modify the `chainMap` in `src/wagmi-config.ts` to add new chains:
+1. Implement the `DelphinusProvider` interface
+2. Add the new type to `ProviderConfig`
+3. Update the provider factory in `ProviderManager`
+
+### Custom Configuration
 
 ```typescript
-const chainMap: Record<number, Chain> = {
-  1: mainnet,
-  // Add your custom chain
-  123: yourCustomChain,
-};
+import { setProviderConfig } from 'zkwasm-minirollup-browser';
+
+// Configure for read-only mode
+setProviderConfig({
+  type: 'readonly',
+  providerUrl: 'https://your-rpc-endpoint.com'
+});
+
+// Configure for private key wallet
+setProviderConfig({
+  type: 'wallet',
+  privateKey: 'your-private-key',
+  chainId: 11155111
+});
 ```
 
-### Adding New Features
+### Error Handling
 
-1. Add new thunk functions in `src/reduxstate.ts`
-2. Add corresponding UI components in `example/src/App.tsx`
-3. Update state type definitions
+```typescript
+import { withProvider } from 'zkwasm-minirollup-browser';
 
-### Style Customization
-
-Edit `example/src/App.css` to customize application styles. Currently uses modern card-based design.
+try {
+  const result = await withProvider(async (provider) => {
+    return await provider.someOperation();
+  });
+} catch (error) {
+  console.error('Provider operation failed:', error);
+}
+```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Wallet Connection Fails**
-   - Check if WalletConnect Project ID is correctly configured
-   - Ensure wallet extension is installed
+1. **Configuration Validation Errors**
+   - Check that all required environment variables are set
+   - Ensure variable names use the correct `REACT_APP_` prefix
+   - Copy from `env.example` and modify values
 
-2. **Network Switching Fails**
-   - Check `REACT_APP_CHAIN_ID` configuration
-   - Confirm wallet supports target network
+2. **Provider Connection Fails**
+   - Verify WalletConnect Project ID is correctly configured
+   - Check that the browser wallet extension is installed and unlocked
+   - Ensure the target chain is supported
 
-3. **Signature Fails**
-   - Ensure wallet is unlocked
-   - Check network connection
+3. **Environment Variables Not Loading**
+   - Restart the development server after changing `.env` file
+   - Check that variables use the correct `REACT_APP_` prefix
+   - Verify `.env` file is in the correct directory
 
-4. **Deposit Fails**
-   - Check if contract addresses are valid
-   - Ensure sufficient token balance
-   - Verify network is correct
+4. **TypeScript Errors**
+   - Ensure you're importing types from the main package
+   - Check that provider operations use the correct interface methods
 
-5. **L2 Key Generation Fails**
-   - Ensure wallet is connected
-   - Check if user rejected signature request
+### Getting Help
 
-### Debug Information
+- Check the [Provider Pattern Documentation](../PROVIDER_PATTERN.md)
+- Review the [Compatibility Guide](../COMPATIBILITY_GUIDE.md)
+- Look at the example source code for implementation details
 
-The application provides extensive console logging. Open browser developer tools to view:
+## Performance Notes
 
-- Wallet connection status
-- Account login process
-- Transaction details
-- Error messages
-
-### Environment Variables Reference
-
-```env
-# Required - Get from WalletConnect Cloud
-REACT_APP_WALLETCONNECT_PROJECT_ID=your_project_id
-
-# Optional - Default is 1 (Ethereum Mainnet)
-REACT_APP_CHAIN_ID=1
-
-# Required for deposit functionality
-REACT_APP_DEPOSIT_CONTRACT=0x...
-REACT_APP_TOKEN_CONTRACT=0x...
-```
-
-## API Reference
-
-### useZkWasmWallet Hook
-
-The application uses the `useZkWasmWallet` hook which provides:
-
-```typescript
-interface ZkWasmWallet {
-  connectAndLoginL1: (dispatch: any) => Promise<void>;
-  loginL2: (dispatch: any, appName?: string) => Promise<void>;
-  deposit: (dispatch: any, params: DepositParams) => Promise<void>;
-  reset: (dispatch: any) => void;
-}
-```
-
-### Redux Actions
-
-- `loginL1AccountWithRainbowKitAsync` - Connect wallet and login L1 account
-- `loginL2AccountWithRainbowKitAsync` - Generate L2 key pair
-- `depositWithRainbowKitAsync` - Deposit tokens from L1 to L2
-- `resetAccountState` - Reset all account state
-
-## Security Considerations
-
-1. **Private Key Safety**: L2 private keys are generated client-side and never transmitted
-2. **Transaction Verification**: All transaction parameters are verified before sending
-3. **Network Validation**: Ensure connection to correct network before operations
-4. **User Confirmation**: Important operations require user signature confirmation
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details. 
+- Provider instances are cached and reused for better performance
+- Environment configuration is validated once on startup
+- Provider operations use the efficient `withProvider` pattern for resource management 

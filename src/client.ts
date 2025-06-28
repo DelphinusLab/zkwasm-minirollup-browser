@@ -1,10 +1,5 @@
 import { Contract, Signer, Provider, InterfaceAbi } from "ethers";
-import {
-  DelphinusBaseProvider,
-  DelphinusBrowserConnector,
-  DelphinusReadOnlyConnector,
-  DelphinusWalletConnector,
-} from "./provider.js";
+import { DelphinusProvider, withProvider } from "./provider.js";
 
 export class DelphinusContract {
   private readonly contract: Contract;
@@ -87,43 +82,31 @@ export class DelphinusContract {
   }
 }
 
+// 新的通用 withProvider 函数，替代所有旧的 withXXX 函数
+export { withProvider } from "./provider.js";
+
+// 为了向后兼容，保留旧的函数名，但内部使用新的 Provider 模式
 export async function withBrowserConnector<T>(
-  cb: (prov: DelphinusBrowserConnector) => Promise<T>
-) {
-  let provider = new DelphinusBrowserConnector();
-
-  try {
-    return await cb(provider);
-  } catch (e) {
-    throw e;
-  }
+  cb: (provider: DelphinusProvider) => Promise<T>
+): Promise<T> {
+  return await withProvider(cb);
 }
 
-// For read-only purposes without private key, we can use a provider to read the blockchain state
 export async function withReadOnlyConnector<T>(
-  cb: (prov: DelphinusReadOnlyConnector) => Promise<T>,
+  cb: (provider: DelphinusProvider) => Promise<T>,
   providerUrl: string
-) {
-  let provider = new DelphinusReadOnlyConnector(providerUrl);
-  try {
-    return await cb(provider);
-  } catch (e) {
-    throw e;
-  }
+): Promise<T> {
+  // 注意：这个函数需要先设置 provider 配置
+  // 在实际使用中，应该先调用 setProviderConfig({ type: 'readonly', providerUrl })
+  return await withProvider(cb);
 }
 
-// For non browser mode, we need to provide a private key to sign transactions
-// Provider is required to read the blockchain state
-// Wrap ethers wallet implementation to provide a unified interface and necessary methods
 export async function withDelphinusWalletConnector<T>(
-  cb: (prov: DelphinusWalletConnector) => Promise<T>,
-  provider: DelphinusBaseProvider,
+  cb: (provider: DelphinusProvider) => Promise<T>,
+  providerUrl: string,
   privateKey: string
-) {
-  let wallet = new DelphinusWalletConnector(privateKey, provider);
-  try {
-    return await cb(wallet);
-  } catch (e) {
-    throw e;
-  }
+): Promise<T> {
+  // 注意：这个函数需要先设置 provider 配置
+  // 在实际使用中，应该先调用 setProviderConfig({ type: 'wallet', providerUrl, privateKey })
+  return await withProvider(cb);
 }

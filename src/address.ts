@@ -1,6 +1,4 @@
-import { withBrowserConnector } from "./client.js";
-import { DelphinusBrowserConnector } from "./provider.js";
-
+import { withProvider } from "./provider.js";
 
 export function addressAbbreviation(address: string, tailLength: number) {
   return address.substring(0,8) + "..." + address.substring(address.length - tailLength, address.length);
@@ -11,11 +9,11 @@ export function hexAbbreviation(address: string, tailLength: number) {
 }
 
 export async function signMessage(message: string) {
-  const signature = await withBrowserConnector(async (provider: DelphinusBrowserConnector) => {
+  const signature = await withProvider(async (provider) => {
     if (!provider) {
       throw new Error("No provider found!");
     }
-    const signature = provider.sign(message);
+    const signature = await provider.sign(message);
     return signature;
   });
   return signature;
@@ -29,13 +27,11 @@ export async function signMessageWithRainbowKit(message: string, rainbowKitHooks
 }
 
 export async function switchNetwork(chainId: number) {
-  await withBrowserConnector(async (provider: DelphinusBrowserConnector) => {
+  await withProvider(async (provider) => {
     if (!provider) {
       throw new Error("No provider found!");
     }
-    await provider.provider.send("wallet_switchEthereumChain", [
-      { chainId: "0x" + chainId.toString(16) },
-    ]);
+    await provider.switchNet("0x" + chainId.toString(16));
   });
 }
 
