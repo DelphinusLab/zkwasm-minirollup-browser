@@ -8,10 +8,10 @@ import { mainnet, sepolia, type Chain } from 'wagmi/chains';
 import { accountSlice } from './reduxstate';
 import { getWalletConnectId, getEnvConfig } from './env-adapter';
 
-// 缓存配置以避免重复初始化
+// Cache configuration to avoid repeated initialization
 let cachedConfig: any = null;
 
-// 简化的 RainbowKit 配置函数
+// Simplified RainbowKit configuration function
 export function createDelphinusRainbowKitConfig(options?: {
   appName?: string;
   projectId?: string;
@@ -22,17 +22,17 @@ export function createDelphinusRainbowKitConfig(options?: {
     return cachedConfig;
   }
 
-  // 从环境变量获取配置
+  // Get configuration from environment variables
   const envConfig = getEnvConfig();
   console.log('Creating RainbowKit config with env:', envConfig);
   
-  // 根据环境变量的 chainId 选择链
+  // Select chains based on chainId from environment variables
   const getChains = (): readonly [Chain, ...Chain[]] => {
     if (options?.chains) {
       return options.chains;
     }
     
-    // 根据环境变量的 chainId 选择默认链
+    // Select default chains based on chainId from environment variables
     switch (envConfig.chainId) {
       case 1:
         return [mainnet];
@@ -53,7 +53,7 @@ export function createDelphinusRainbowKitConfig(options?: {
           } as Chain,
         ];
       default:
-        return [sepolia, mainnet]; // 默认包含测试网和主网
+        return [sepolia, mainnet]; // Default includes testnet and mainnet
     }
   };
 
@@ -66,13 +66,13 @@ export function createDelphinusRainbowKitConfig(options?: {
   return cachedConfig;
 }
 
-// 重置缓存的配置（用于开发调试）
+// Reset cached configuration (for development debugging)
 export function resetDelphinusConfig() {
   cachedConfig = null;
   defaultStore = null;
 }
 
-// 创建默认的查询客户端
+// Create default query client
 const defaultQueryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -81,10 +81,10 @@ const defaultQueryClient = new QueryClient({
   },
 });
 
-// 缓存默认 store 以避免重复创建
+// Cache default store to avoid repeated creation
 let defaultStore: any = null;
 
-// 创建默认的 Redux store
+// Create default Redux store
 function getDefaultStore() {
   if (!defaultStore) {
     defaultStore = configureStore({
@@ -109,7 +109,7 @@ function getDefaultStore() {
   return defaultStore;
 }
 
-// 统一的 Provider 组件配置接口
+// Unified Provider component configuration interface
 export interface DelphinusProviderProps {
   children: React.ReactNode;
   appName?: string;
@@ -120,7 +120,7 @@ export interface DelphinusProviderProps {
   wagmiConfig?: any;
 }
 
-// 统一的 Delphinus Provider 组件
+// Unified Delphinus Provider component
 export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
   children,
   appName = 'Delphinus zkWasm MiniRollup',
@@ -130,7 +130,7 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
   store = getDefaultStore(),
   wagmiConfig,
 }) => {
-  // 创建或使用提供的 wagmi 配置
+  // Create or use provided wagmi configuration
   const config = wagmiConfig || createDelphinusRainbowKitConfig({
     appName,
     projectId,
@@ -150,7 +150,7 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
   );
 };
 
-// 简化的配置函数，用于创建自定义 store
+// Simplified configuration function for creating custom store
 export function createDelphinusStore(additionalReducers?: any) {
   return configureStore({
     reducer: {

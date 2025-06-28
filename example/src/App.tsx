@@ -10,7 +10,7 @@ import {
   withProvider,
   type AccountState,
   type DelphinusProvider,
-  // 从 SDK 导入 RainbowKit 组件
+  // Import RainbowKit components from SDK
   ConnectButton,
   useConnectModal,
   useAccount,
@@ -25,11 +25,11 @@ interface RootState {
 function App() {
   const dispatch = useDispatch();
   
-  // 获取环境配置（使用 useMemo 缓存）
+  // Get environment configuration (cached with useMemo)
   const envConfig = React.useMemo(() => getEnvConfig(), []);
   const [configErrors, setConfigErrors] = useState<string[]>([]);
   
-  // RainbowKit hooks（从 SDK 导出）
+  // RainbowKit hooks (exported from SDK)
   const { openConnectModal } = useConnectModal();
   const rainbowAccount = useAccount();
   
@@ -64,7 +64,7 @@ function App() {
   const isDepositing = status === 'Deposit';
   const lastError = status.includes('Error') ? status : null;
 
-  // 验证环境配置
+  // Validate environment configuration
   useEffect(() => {
     console.log('Environment config:', envConfig);
     console.log('Chain ID from env:', envConfig.chainId);
@@ -75,12 +75,12 @@ function App() {
       setConfigErrors(validation.errors);
     } else {
       setConfigErrors([]);
-      // 设置 Provider 配置
+      // Set Provider configuration
       setProviderConfig({ type: 'rainbow' });
     }
   }, [envConfig]);
 
-  // 测试 Provider 连接
+  // Test Provider connection
   const testProviderConnection = async () => {
     try {
       const result = await withProvider(async (provider: DelphinusProvider) => {
@@ -194,7 +194,7 @@ function App() {
     }
   };
 
-  // 直接使用 Provider 进行签名测试
+  // Direct Provider signing test
   const handleTestSign = async () => {
     try {
       // Ensure RainbowKit provider is initialized (if using rainbow type)

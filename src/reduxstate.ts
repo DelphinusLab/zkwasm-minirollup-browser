@@ -457,7 +457,7 @@ export const depositAsync = createAsyncThunk(
       throw new Error('Transaction failed: no receipt received');
     }
     
-    // 只返回可序列化的交易信息
+    // Return only serializable transaction information
     return {
       hash: txReceipt.hash,
       blockNumber: txReceipt.blockNumber,
@@ -509,7 +509,7 @@ export const depositWithRainbowKitAsync = createAsyncThunk(
       throw new Error('Transaction failed: no receipt received');
     }
     
-    // 只返回可序列化的交易信息
+    // Return only serializable transaction information
     return {
       hash: txReceipt.hash,
       blockNumber: txReceipt.blockNumber,

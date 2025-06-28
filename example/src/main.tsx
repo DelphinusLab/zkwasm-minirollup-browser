@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 
-// 使用 SDK 导出的统一 Provider
+// Use unified Provider exported from SDK
 import { 
   DelphinusReactProvider
 } from '../../src/index'
