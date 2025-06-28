@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      // 允许导入父目录的源文件
+      // Allow importing source files from parent directory
       '@': path.resolve(__dirname, '../src'),
     },
   },
@@ -19,5 +19,5 @@ export default defineConfig({
   define: {
     global: 'globalThis',
   },
-  envPrefix: ['VITE_', 'REACT_APP_'], // 支持 REACT_APP 环境变量
+      envPrefix: ['VITE_', 'REACT_APP_'], // Support REACT_APP environment variables
 }) 

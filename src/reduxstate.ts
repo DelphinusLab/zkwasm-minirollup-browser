@@ -14,7 +14,7 @@ export interface L1AccountInfo {
   chainId: string;
 }
 
-// 可序列化的 L2 账户信息接口
+// Serializable L2 account info interface
 export interface L2AccountData {
   privateKey: string;
   publicKeyHex: string;
@@ -80,15 +80,15 @@ async function loginL1Account() {
   });
 }
 
-// RainbowKit 版本的 L1 账户登录函数
+// RainbowKit version of L1 account login function
 async function loginL1AccountWithRainbowKit(rainbowKitHooks: any) {
-  // 如果没有连接钱包，先打开连接模态框
+  // If wallet is not connected, open connection modal first
   if (!rainbowKitHooks.isConnected || !rainbowKitHooks.address) {
     console.log('Wallet not connected, opening connect modal...');
     if (rainbowKitHooks.openConnectModal) {
       rainbowKitHooks.openConnectModal();
     }
-    // 不抛出错误，而是等待用户连接钱包
+    // Don't throw error, wait for user to connect wallet
     throw new Error('Wallet connection required - please connect your wallet using the modal');
   }
 
@@ -97,21 +97,21 @@ async function loginL1AccountWithRainbowKit(rainbowKitHooks: any) {
     
     console.log('Target chain ID:', targetChainId, 'Current chain ID:', rainbowKitHooks.chainId);
     
-    // 检查当前链是否正确，如果不正确则切换
+    // Check if current chain is correct, switch if not
     if (rainbowKitHooks.chainId !== targetChainId) {
       console.log('Switching to target chain:', targetChainId);
       
       try {
         await rainbowKitHooks.switchChain({ chainId: targetChainId });
         
-        // 等待网络切换完成
+        // Wait for network switch to complete
         console.log('Waiting for network switch to complete...');
         await new Promise(resolve => setTimeout(resolve, 3000));
         
       } catch (switchError: any) {
         console.error('Failed to switch chain:', switchError);
         
-        // 如果自动切换失败，给用户友好的提示
+        // If automatic switch fails, give user friendly prompt
         if (switchError.code === 4902) {
           throw new Error(`Please add chain ${targetChainId} to your wallet and switch to it manually.`);
         } else {
@@ -120,19 +120,19 @@ async function loginL1AccountWithRainbowKit(rainbowKitHooks: any) {
       }
     }
     
-    // 不依赖 rainbowKitHooks.chainId，直接检查提供者的网络
+    // Don't rely on rainbowKitHooks.chainId, check provider's network directly
     let currentNetwork;
     try {
       currentNetwork = await adapter.getNetworkId();
       console.log('Current network ID from provider:', currentNetwork.toString());
     } catch (error) {
       console.error('Failed to get network ID, reinitializing adapter...');
-      // 如果获取网络 ID 失败，重新初始化适配器
+      // If getting network ID fails, reinitialize adapter
       await reinitializeRainbowProvider(rainbowKitHooks.address, targetChainId);
       currentNetwork = await adapter.getNetworkId();
     }
     
-    // 验证网络是否正确
+    // Verify if network is correct
     if (currentNetwork.toString() !== targetChainId.toString()) {
       console.error(`Network mismatch: expected ${targetChainId}, got ${currentNetwork.toString()}`);
       throw new Error(`Please manually switch to chain ${targetChainId} in your wallet. Current chain: ${currentNetwork.toString()}`);
@@ -155,9 +155,9 @@ async function loginL2Account(address: string): Promise<L2AccountInfo> {
   return new L2AccountInfo(str.substring(0,34));
 }
 
-// RainbowKit 版本的 L2 账户登录函数
+// RainbowKit version of L2 account login function
 async function loginL2AccountWithRainbowKit(address: string, rainbowKitHooks: any): Promise<L2AccountInfo> {
-  // 使用 RainbowKit 的签名功能
+  // Use RainbowKit's signing functionality
   const signature = await rainbowKitHooks.signMessageAsync({ message: address });
   console.log("signed result (RainbowKit)", signature);
   return new L2AccountInfo(signature.substring(0,34));
@@ -326,7 +326,7 @@ async function deposit(chainId: number, tokenIndex: number, amount: number, l2ac
   }
 }
 
-// RainbowKit 版本的存款函数
+// RainbowKit version of deposit function
 async function depositWithRainbowKit(
   chainId: number, 
   tokenIndex: number, 
@@ -341,7 +341,7 @@ async function depositWithRainbowKit(
       
       console.log('Deposit: checking chain ID', { current: rainbowKitHooks.chainId, target: targetChainId });
       
-      // 检查当前链是否正确，如果不正确则切换
+      // Check if current chain is correct, switch if not
       if (rainbowKitHooks.chainId !== targetChainId) {
         console.log('Deposit: switching to target chain:', targetChainId);
         await rainbowKitHooks.switchChain({ chainId: targetChainId });
@@ -415,7 +415,7 @@ async function depositWithRainbowKit(
 
 export interface AccountState {
   l1Account?: L1AccountInfo;
-  l2account?: L2AccountInfo;  // 恢复使用 L2AccountInfo
+  l2account?: L2AccountInfo;  // Restore using L2AccountInfo
   status: 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
 }
 
@@ -444,7 +444,7 @@ export const loginL2AccountAsync = createAsyncThunk(
   'acccount/deriveL2Account',
   async (appName:string,  thunkApi) => {
     const l2account = await loginL2Account(appName);
-    return l2account;  // 直接返回 L2AccountInfo 实例
+    return l2account;  // Return L2AccountInfo instance directly
   }
 );
 
@@ -470,7 +470,7 @@ export const depositAsync = createAsyncThunk(
   }
 );
 
-// RainbowKit 版本的 thunk 函数
+// RainbowKit version of thunk functions
 export const loginL1AccountWithRainbowKitAsync = createAsyncThunk(
   'account/fetchAccountRainbowKit',
   async (rainbowKitHooks: any, thunkApi) => {
@@ -483,7 +483,7 @@ export const loginL2AccountWithRainbowKitAsync = createAsyncThunk(
   'account/deriveL2AccountRainbowKit',
   async (params: {appName: string, rainbowKitHooks: any}, thunkApi) => {
     const l2account = await loginL2AccountWithRainbowKit(params.appName, params.rainbowKitHooks);
-    return l2account;  // 直接返回 L2AccountInfo 实例
+    return l2account;  // Return L2AccountInfo instance directly
   }
 );
 
@@ -522,16 +522,16 @@ export const depositWithRainbowKitAsync = createAsyncThunk(
   }
 );
 
-// 完整的钱包连接和 L1 登录流程
+// Complete wallet connection and L1 login flow
 export const connectWalletAndLoginL1Async = createAsyncThunk(
   'account/connectAndLoginL1',
   async (_, thunkApi) => {
-    // 这个函数需要在 React 组件中调用，因为需要使用 hooks
+    // This function needs to be called from React component because it requires hooks
     throw new Error('This function should be called from a React component with RainbowKit hooks');
   }
 );
 
-// 为外部使用提供的连接函数，需要传入 RainbowKit hooks
+// Connection function for external use, requires RainbowKit hooks
 export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
   'account/connectAndLoginL1WithHooks',
   async (rainbowKitHooks: {
@@ -539,28 +539,28 @@ export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
     address?: string;
     chainId?: number;
     openConnectModal?: () => void;
-    connect?: (config: any) => void;  // wagmi 的 connect 返回 void
-    connectors?: readonly any[];      // wagmi 的 connectors 是 readonly
+    connect?: (config: any) => void;  // wagmi connect returns void
+    connectors?: readonly any[];      // wagmi connectors are readonly
     signMessageAsync: (config: any) => Promise<string>;
-    switchChain: (config: any) => void;  // wagmi 的 switchChain 返回 void
+    switchChain: (config: any) => void;  // wagmi switchChain returns void
   }, thunkApi) => {
-    // 如果钱包没有连接，先尝试连接
+    // If wallet is not connected, try to connect first
     if (!rainbowKitHooks.isConnected || !rainbowKitHooks.address) {
       console.log('Wallet not connected, attempting to connect...');
       
-      // 优先使用 openConnectModal
+      // Prefer using openConnectModal
       if (rainbowKitHooks.openConnectModal) {
         console.log('Opening RainbowKit connect modal...');
         rainbowKitHooks.openConnectModal();
         throw new Error('Please connect your wallet using the modal');
       }
       
-      // 备用方案：尝试自动连接第一个连接器
+      // Fallback: try to auto-connect first connector
       if (rainbowKitHooks.connect && rainbowKitHooks.connectors && rainbowKitHooks.connectors.length > 0) {
         try {
           console.log('Attempting auto-connect with first connector...');
           rainbowKitHooks.connect({ connector: rainbowKitHooks.connectors[0] });
-          // 连接是异步的，但函数立即返回，所以我们等待连接状态更新
+          // Connection is async but function returns immediately, so we wait for connection state update
           throw new Error('Wallet connection initiated. Please wait for connection to complete and try again.');
         } catch (connectError) {
           console.error('Auto-connect failed:', connectError);
@@ -571,7 +571,7 @@ export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
       }
     }
     
-    // 钱包已连接，进行 L1 登录
+    // Wallet connected, proceed with L1 login
     console.log('Wallet connected, proceeding with L1 login...');
     const account = await loginL1AccountWithRainbowKit(rainbowKitHooks);
     return account;
@@ -619,7 +619,7 @@ export const accountSlice = createSlice({
         state.status = 'Ready';
         console.log(c.payload);
       })
-      // RainbowKit 版本的 action 处理
+      // RainbowKit version action handling
       .addCase(loginL1AccountWithRainbowKitAsync.pending, (state) => {
         state.status = 'LoadingL1';
       })
@@ -653,12 +653,12 @@ export const accountSlice = createSlice({
         state.status = 'Ready';
         console.error('Deposit failed:', c.error);
       })
-      // 完整的连接和登录流程
+      // Complete connection and login flow
       .addCase(connectWalletAndLoginL1WithHooksAsync.pending, (state) => {
         state.status = 'LoadingL1';
       })
       .addCase(connectWalletAndLoginL1WithHooksAsync.fulfilled, (state, c) => {
-        state.status = 'Ready';  // L1 登录成功后应该是 Ready 状态
+        state.status = 'Ready';  // Should be Ready state after successful L1 login
         state.l1Account = c.payload;
       })
       .addCase(connectWalletAndLoginL1WithHooksAsync.rejected, (state, c) => {
@@ -668,19 +668,19 @@ export const accountSlice = createSlice({
   },
 });
 
-// 便利类型定义，供外部项目使用
+// Convenience type definition for external projects
 export interface RainbowKitHooks {
   isConnected: boolean;
   address?: string;
   chainId?: number;
   openConnectModal?: () => void;
-  connect?: (config: any) => void;  // wagmi 的 connect 返回 void
-  connectors?: readonly any[];      // wagmi 的 connectors 是 readonly
+  connect?: (config: any) => void;  // wagmi connect returns void
+  connectors?: readonly any[];      // wagmi connectors are readonly
   signMessageAsync: (config: any) => Promise<string>;
-  switchChain: (config: any) => void;  // wagmi 的 switchChain 返回 void
+  switchChain: (config: any) => void;  // wagmi switchChain returns void
 }
 
-// 便利函数：创建 RainbowKit hooks 对象
+// Convenience function: create RainbowKit hooks object
 export function createRainbowKitHooks(wagmiHooks: {
   useAccount: () => any;
   useChainId: () => number;
@@ -716,17 +716,17 @@ export const { setL1Account, resetAccountState } = accountSlice.actions;
 
 export default accountSlice.reducer;
 
-// SDK React Hook - 使用新的 Provider 模式
+// SDK React Hook - using new Provider pattern
 export function useZkWasmWallet() {
   const [isConnected, setIsConnected] = useState(false);
   const [address, setAddress] = useState<string | undefined>(undefined);
   const [chainId, setChainId] = useState<number | undefined>(undefined);
 
-  // 检查钱包连接状态
+  // Check wallet connection status
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        // 直接检查 ethereum 对象而不通过 provider
+        // Check ethereum object directly without going through provider
         if (!(window as any).ethereum) {
           setIsConnected(false);
           setAddress(undefined);
@@ -739,7 +739,7 @@ export function useZkWasmWallet() {
         }) || [];
         
         if (accounts.length > 0) {
-          // 如果有账户，获取网络信息
+          // If accounts exist, get network info
           try {
             const result = await withProvider(async (provider) => {
               const networkId = await provider.getNetworkId();
@@ -754,7 +754,7 @@ export function useZkWasmWallet() {
             setAddress(result.address);
             setChainId(result.chainId);
           } catch (error) {
-            // 即使有账户，如果 provider 有问题也设为未连接
+            // Even if accounts exist, set as disconnected if provider has issues
             console.warn('Provider error while checking connection:', error);
             setIsConnected(false);
             setAddress(undefined);
@@ -766,7 +766,7 @@ export function useZkWasmWallet() {
           setChainId(undefined);
         }
       } catch (error) {
-        // Provider 不可用或未连接
+        // Provider unavailable or not connected
         console.warn('Connection check error:', error);
         setIsConnected(false);
         setAddress(undefined);
@@ -776,7 +776,7 @@ export function useZkWasmWallet() {
 
     checkConnection();
 
-    // 监听账户变化
+    // Listen for account changes
     if ((window as any).ethereum) {
       const handleAccountsChanged = (accounts: string[]) => {
         if (accounts.length > 0) {
@@ -804,28 +804,28 @@ export function useZkWasmWallet() {
 
   const connectAndLoginL1 = useCallback(async (dispatch: any) => {
     try {
-      // 首先检查是否需要初始化 RainbowKit provider
+      // First check if RainbowKit provider needs initialization
       const { getProvider, DelphinusRainbowConnector } = await import('./provider');
       
-      // 如果是 rainbow 类型，需要先获取账户信息来初始化
+      // If rainbow type, need to get account info first for initialization
       let currentProvider;
       try {
         currentProvider = await getProvider();
       } catch (error) {
-        // Provider 还未创建，这是正常的
+        // Provider not yet created, this is normal
         console.log('Provider not yet created, will create after wallet connection');
       }
       
-      // 如果是 RainbowKit provider 但未初始化，需要先连接钱包获取信息
+      // If RainbowKit provider but not initialized, need to connect wallet first to get info
       if (currentProvider instanceof DelphinusRainbowConnector) {
-        // 检查是否已经初始化
+        // Check if already initialized
         try {
           await currentProvider.connect();
         } catch (error) {
-          // 未初始化，需要先获取账户信息
+          // Not initialized, need to get account info first
           console.log('RainbowKit provider needs initialization');
           
-          // 直接从 MetaMask 获取账户信息
+          // Get account info directly from MetaMask
           if (typeof window !== 'undefined' && (window as any).ethereum) {
             const accounts = await (window as any).ethereum.request({ 
               method: 'eth_requestAccounts' 
@@ -835,7 +835,7 @@ export function useZkWasmWallet() {
             });
             
             if (accounts.length > 0) {
-              // 初始化 RainbowKit provider
+              // Initialize RainbowKit provider
               await currentProvider.initialize(accounts[0], parseInt(chainId, 16));
             }
           }
@@ -843,16 +843,16 @@ export function useZkWasmWallet() {
       }
       
       const result = await withProvider(async (provider) => {
-        // 连接钱包
+        // Connect wallet
         const connectedAddress = await provider.connect();
         const networkId = await provider.getNetworkId();
         
-        // 更新状态
+        // Update state
         setIsConnected(true);
         setAddress(connectedAddress);
         setChainId(Number(networkId));
         
-        // 执行 L1 登录
+        // Execute L1 login
         const l1Account: L1AccountInfo = {
           address: connectedAddress,
           chainId: networkId.toString()
@@ -861,7 +861,7 @@ export function useZkWasmWallet() {
         return l1Account;
       });
       
-      // 更新 Redux 状态
+      // Update Redux state
       dispatch(setL1Account(result));
       return result;
     } catch (error) {
@@ -876,7 +876,7 @@ export function useZkWasmWallet() {
     }
 
     try {
-      // 确保 RainbowKit provider 已初始化
+      // Ensure RainbowKit provider is initialized
       const { getProvider, DelphinusRainbowConnector } = await import('./provider');
       const currentProvider = await getProvider();
       
@@ -884,23 +884,23 @@ export function useZkWasmWallet() {
         try {
           await currentProvider.connect();
         } catch (error) {
-          // 如果连接失败，重新初始化
+          // If connection fails, reinitialize
           console.log('Re-initializing RainbowKit provider for L2 login');
           await currentProvider.initialize(address as `0x${string}`, chainId);
         }
       }
       
       const result = await withProvider(async (provider) => {
-        // 使用 provider 签名 - 注意：应该签名 appName，而不是 address
+        // Use provider to sign - note: should sign appName, not address
         const signature = await provider.sign(appName);
         console.log("signed result (new provider pattern)", signature);
         
-        // 创建 L2 账户 - 使用签名结果的前34个字符（包含0x前缀）
+        // Create L2 account - use first 34 characters of signature (including 0x prefix)
         const l2Account = new L2AccountInfo(signature.substring(0, 34));
         return l2Account;
       });
       
-      // 更新 Redux 状态
+      // Update Redux state
       dispatch(loginL2AccountWithRainbowKitAsync.fulfilled(result, '', { appName, rainbowKitHooks: {} }));
       return result;
     } catch (error) {
@@ -923,7 +923,7 @@ export function useZkWasmWallet() {
     try {
       dispatch(depositWithRainbowKitAsync.pending('', { ...params, rainbowKitHooks: {} }));
       
-      // 确保 RainbowKit provider 已初始化
+      // Ensure RainbowKit provider is initialized
       const { getProvider, DelphinusRainbowConnector } = await import('./provider');
       const currentProvider = await getProvider();
       
@@ -931,24 +931,24 @@ export function useZkWasmWallet() {
         try {
           await currentProvider.connect();
         } catch (error) {
-          // 如果连接失败，重新初始化
+          // If connection fails, reinitialize
           console.log('Re-initializing RainbowKit provider for deposit');
           await currentProvider.initialize(address as `0x${string}`, chainId);
         }
       }
       
       const result = await withProvider(async (provider) => {
-        // 确保网络正确
+        // Ensure network is correct
         const targetChainId = getChainId();
         const chainidhex = "0x" + targetChainId.toString(16);
         await provider.switchNet(chainidhex);
         
-        // 计算 PID 数组
+        // Calculate PID array
         const pubkey = params.l2account.pubkey;
         const leHexBN = new LeHexBN(bnToHexLe(pubkey));
         const pkeyArray = leHexBN.toU64Array();
         
-        // 获取合约地址
+        // Get contract addresses
         const envConfig = getEnvConfig();
         const proxyAddr = envConfig.depositContract;
         const tokenAddr = envConfig.tokenContract;
@@ -959,25 +959,25 @@ export function useZkWasmWallet() {
           throw new Error("Deposit contract or token contract address not configured");
         }
         
-        // 获取合约实例
+        // Get contract instances
         const tokenContract = await provider.getContractWithSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
         const tokenContractReader = provider.getContractWithoutSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
         
-        // 检查余额和授权
+        // Check balance and allowance
         const balance = await tokenContractReader.getEthersContract().balanceOf(params.l1account.address);
         const allowance = await tokenContractReader.getEthersContract().allowance(params.l1account.address, proxyAddr);
         
         console.log("Deposit: token balance:", balance.toString());
         console.log("Deposit: allowance:", allowance.toString());
         
-        // 计算金额（转换为 wei）
+        // Calculate amount (convert to wei)
         let a = new BN(params.amount);
         let b = new BN("10").pow(new BN(18));
         const amountWei = a.mul(b);
         
         console.log("Deposit: amount in wei:", amountWei.toString());
         
-        // 如果授权不足，先进行授权
+        // If authorization insufficient, authorize first
         if (allowance < amountWei) {
           console.log("Deposit: need to approve, current allowance insufficient");
           if (balance >= amountWei) {
@@ -991,7 +991,7 @@ export function useZkWasmWallet() {
           }
         }
         
-        // 执行存款交易
+        // Execute deposit transaction
         const proxyContract = await provider.getContractWithSigner(proxyAddr, JSON.stringify(contractABI.proxyABI));
         console.log("Deposit: calling topup function with params:", {
           tokenIndex: Number(params.tokenIndex),
@@ -1010,7 +1010,7 @@ export function useZkWasmWallet() {
         const txReceipt = await tx.wait();
         console.log("Deposit: topup transaction confirmed:", txReceipt);
         
-        // 返回符合预期格式的交易回执
+        // Return transaction receipt in expected format
         return {
           hash: txReceipt.hash,
           blockNumber: txReceipt.blockNumber,
@@ -1033,18 +1033,18 @@ export function useZkWasmWallet() {
 
   const disconnect = useCallback(async () => {
     try {
-      // 只清理 provider 实例，但保留配置，这样可以重新连接
+      // Only clear provider instance but keep configuration for reconnection
       const { clearProviderInstance } = await import('./provider');
       clearProviderInstance();
       
-      // 如果是浏览器环境，提示用户
+      // If browser environment, prompt user
       if (typeof window !== 'undefined' && window.ethereum) {
         console.log('Provider disconnected. To fully disconnect, please disconnect from MetaMask manually.');
       }
     } catch (error) {
       console.error('Disconnect error:', error);
     } finally {
-      // 清理本地状态
+      // Clear local state
       setIsConnected(false);
       setAddress(undefined);
       setChainId(undefined);
@@ -1057,12 +1057,12 @@ export function useZkWasmWallet() {
   }, [disconnect]);
 
   return {
-    // 状态
+    // State
     isConnected,
     address,
     chainId,
     
-    // 动作
+    // Actions
     connectAndLoginL1,
     loginL2,
     deposit,
@@ -1071,7 +1071,7 @@ export function useZkWasmWallet() {
   };
 }
 
-// 便利函数：初始化 SDK Hook，外部项目调用一次即可
+// Convenience function: initialize SDK Hook, external projects call once
 export function createZkWasmWalletHook(wagmiHooks: {
   useAccount: any;
   useChainId: any;
@@ -1146,12 +1146,12 @@ export function createZkWasmWalletHook(wagmiHooks: {
     };
 
     return {
-      // 状态
+      // State
       isConnected,
       address,
       chainId,
       
-      // 动作
+      // Actions
       connectAndLoginL1,
       loginL2,
       deposit,

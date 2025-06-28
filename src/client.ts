@@ -82,10 +82,10 @@ export class DelphinusContract {
   }
 }
 
-// 新的通用 withProvider 函数，替代所有旧的 withXXX 函数
+// New generic withProvider function, replaces all old withXXX functions
 export { withProvider } from "./provider.js";
 
-// 为了向后兼容，保留旧的函数名，但内部使用新的 Provider 模式
+// For backward compatibility, keep old function names but use new Provider pattern internally
 export async function withBrowserConnector<T>(
   cb: (provider: DelphinusProvider) => Promise<T>
 ): Promise<T> {
@@ -96,8 +96,8 @@ export async function withReadOnlyConnector<T>(
   cb: (provider: DelphinusProvider) => Promise<T>,
   providerUrl: string
 ): Promise<T> {
-  // 注意：这个函数需要先设置 provider 配置
-  // 在实际使用中，应该先调用 setProviderConfig({ type: 'readonly', providerUrl })
+  // Note: This function requires provider configuration to be set first
+// In actual use, should call setProviderConfig({ type: 'readonly', providerUrl }) first
   return await withProvider(cb);
 }
 
@@ -106,7 +106,7 @@ export async function withDelphinusWalletConnector<T>(
   providerUrl: string,
   privateKey: string
 ): Promise<T> {
-  // 注意：这个函数需要先设置 provider 配置
-  // 在实际使用中，应该先调用 setProviderConfig({ type: 'wallet', providerUrl, privateKey })
+  // Note: This function requires provider configuration to be set first
+// In actual use, should call setProviderConfig({ type: 'wallet', providerUrl, privateKey }) first
   return await withProvider(cb);
 }

@@ -2,29 +2,29 @@
 // 🚀 NEW PROVIDER DESIGN PATTERN EXPORTS
 // ========================================
 
-// Provider 接口和类型
+// Provider interfaces and types
 export {
   type DelphinusProvider,
   type ProviderConfig,
   
-  // Provider 管理器函数
+  // Provider manager functions
   getProvider,
   setProviderConfig,
   clearProvider,
   withProvider,
   
-  // 具体的 Provider 实现
+  // Concrete Provider implementations
   DelphinusBrowserConnector,
   DelphinusRainbowConnector,
   DelphinusReadOnlyConnector,
   DelphinusWalletConnector,
   
-  // 工具函数
+  // Utility functions
   GetBaseProvider,
   type DelphinusBaseProviderType,
 } from "./provider.js";
 
-// 合约相关导出
+// Contract related exports
 export {
   DelphinusContract,
   withBrowserConnector,
@@ -32,7 +32,7 @@ export {
   withDelphinusWalletConnector,
 } from "./client.js";
 
-// 环境变量适配器导出
+// Environment variable adapter exports
 export {
   getEnvConfig,
   getChainId,
@@ -51,7 +51,7 @@ export {
 // 🌈 RAINBOWKIT & WAGMI RE-EXPORTS
 // ========================================
 
-// RainbowKit 组件和 Hooks
+// RainbowKit components and Hooks
 export {
   ConnectButton,
   RainbowKitProvider,
@@ -66,7 +66,7 @@ export {
   lightTheme,
 } from '@rainbow-me/rainbowkit';
 
-// RainbowKit 钱包
+// RainbowKit wallets
 export {
   metaMaskWallet,
   walletConnectWallet,
@@ -77,7 +77,7 @@ export {
   injectedWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 
-// Wagmi 核心
+// Wagmi core
 export {
   WagmiProvider,
   createConfig,
@@ -109,7 +109,7 @@ export {
   waitForTransactionReceipt,
 } from 'wagmi/actions';
 
-// Wagmi 链配置
+// Wagmi chain configuration
 export {
   mainnet,
   sepolia,
@@ -121,7 +121,7 @@ export {
   avalanche,
 } from 'wagmi/chains';
 
-// TanStack Query (Wagmi 依赖)
+// TanStack Query (Wagmi dependency)
 export {
   QueryClient,
   QueryClientProvider,
@@ -139,7 +139,7 @@ export {
 // 🎯 UNIFIED DELPHINUS PROVIDER
 // ========================================
 
-// 统一的 Provider 组件（包装所有必要的 Provider）
+// Unified Provider component (wraps all necessary Providers)
 export {
   DelphinusProvider as DelphinusReactProvider,
   createDelphinusStore,
@@ -148,18 +148,18 @@ export {
   type DelphinusProviderProps,
 } from './delphinus-provider';
 
-// 新的 zkWasm SDK 导出 - 状态管理和 React Hooks
+// New zkWasm SDK exports - state management and React Hooks
 export {
   // Reducer
   default as accountReducer,
   
-  // 新的 Provider 模式 React Hook
+  // New Provider pattern React Hook
   useZkWasmWallet,
   
-  // 完整的钱包连接和登录流程
+  // Complete wallet connection and login flow
   connectWalletAndLoginL1WithHooksAsync,
   
-  // 工具函数
+  // Utility functions
   createRainbowKitHooks,
   createZkWasmWalletHook,
   
@@ -171,7 +171,7 @@ export {
   loginL2AccountAsync,
   loginL2AccountWithRainbowKitAsync,
   
-  // 状态管理
+  // State management
   resetAccountState,
   
   // Selectors
@@ -188,7 +188,7 @@ export {
   type State
 } from './reduxstate.js';
 
-// Rainbow 适配器 - 新的 Provider 模式版本
+// Rainbow adapter - new Provider pattern version
 export {
   initializeRainbowProvider,
   cleanupRainbowProvider,
@@ -197,78 +197,26 @@ export {
 } from "./rainbow-adapter.js";
 
 // ========================================
-// 📦 LEGACY EXPORTS (Backward Compatibility)
-// ========================================
-
-// Legacy state management
-export {
-  ConnectState,
-  createStateSlice,
-  type PropertiesState,
-  type RequestError
-} from "./reduxconnect.js";
-
-// Legacy account slice exports (these are actually in reduxstate.js)
-export {
-  accountSlice as AccountSlice,
-  default as AccountSliceReducer
-} from "./reduxstate.js";
-
-// Legacy connection utilities
-export {
-  getRpc,
-  getRpcUrl,
-  setRpcUrl,
-} from "./connect.js";
-
-// Legacy address utilities
-export {
-  signMessageWithRainbowKit,
-  switchNetworkWithRainbowKit,
-} from "./address.js";
-
-// Legacy wagmi configuration
-export {
-  wagmiConfig,
-} from "./wagmi-config.js";
-
-// Legacy rainbow adapter (deprecated - throws errors for new projects)
-export {
-  useRainbowKitAdapter,
-} from "./rainbow-adapter.js";
-
-// Legacy hooks (deprecated - use new useZkWasmWallet instead)
-export {
-  useZkWasmWalletLegacy,
-} from './zkwasm-hooks.js';
-
-// ========================================
-// 📚 MIGRATION GUIDE
+// 📚 Usage Guide
 // ========================================
 
 /*
-MIGRATION FROM OLD TO NEW PATTERN:
+Usage:
 
-OLD (Deprecated):
-```typescript
-import { useZkWasmWallet } from 'zkwasm-minirollup-browser';
-// Requires complex wagmi providers setup
-```
-
-NEW (Recommended - Option 1: Unified Provider):
+Option 1: Unified Provider:
 ```typescript
 import { DelphinusReactProvider, useZkWasmWallet } from 'zkwasm-minirollup-browser';
 
-// In your main.tsx
+// In main.tsx
 <DelphinusReactProvider appName="Your App">
   <App />
 </DelphinusReactProvider>
 
-// In your components
+// In components
 const wallet = useZkWasmWallet();
 ```
 
-NEW (Option 2: Direct Provider Pattern):
+Option 2: Direct Provider pattern:
 ```typescript
 import { 
   useZkWasmWallet, 
@@ -276,10 +224,10 @@ import {
   withProvider 
 } from 'zkwasm-minirollup-browser';
 
-// Configure provider (do this once in your app)
+// Configure provider (execute once at app startup)
 setProviderConfig({ type: 'browser' });
 
-// Use the hook (no providers needed)
+// Use hook
 const wallet = useZkWasmWallet();
 
 // Or use provider directly
@@ -288,19 +236,17 @@ const result = await withProvider(async (provider) => {
 });
 ```
 
-RainbowKit Components (All available from SDK):
+RainbowKit components:
 ```typescript
 import { 
   ConnectButton, 
   useConnectModal, 
   useAccount 
 } from 'zkwasm-minirollup-browser';
-// No need to install RainbowKit separately!
 ```
 
-Environment Variables:
-- All projects now use REACT_APP_ prefix
-- Works with CRA, Next.js, Vite, and custom builds
-- See COMPATIBILITY_GUIDE.md for details
+Environment variables:
+- All projects use REACT_APP_ prefix
+- Support for CRA, Next.js, Vite and custom builds
 */
 

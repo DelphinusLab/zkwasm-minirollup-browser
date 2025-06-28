@@ -197,7 +197,7 @@ function App() {
   // 直接使用 Provider 进行签名测试
   const handleTestSign = async () => {
     try {
-      // 确保 RainbowKit provider 已初始化（如果使用的是 rainbow 类型）
+      // Ensure RainbowKit provider is initialized (if using rainbow type)
       const { getProvider, DelphinusRainbowConnector } = await import('../../src/provider');
       const currentProvider = await getProvider();
       
@@ -220,7 +220,7 @@ function App() {
     }
   };
 
-  // 如果有配置错误，显示错误信息
+      // If there are configuration errors, show error messages
   if (configErrors.length > 0) {
     return (
       <div className="App">

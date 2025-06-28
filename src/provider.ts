@@ -14,7 +14,7 @@ import {
 import { DelphinusContract } from "./client.js";
 import { getWalletConnectId } from './env-adapter';
 
-// RainbowKit 相关导入
+// RainbowKit related imports
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import { metaMaskWallet, walletConnectWallet, coinbaseWallet } from '@rainbow-me/rainbowkit/wallets';
 import { createConfig, http } from 'wagmi';
@@ -23,30 +23,30 @@ import { mainnet, sepolia } from 'wagmi/chains';
 
 
 
-// 统一的 DelphinusProvider 接口
+// Unified DelphinusProvider interface
 export interface DelphinusProvider {
-  // 基础连接方法
+  // Basic connection methods
   connect(): Promise<string>;
   close(): void;
   
-  // 网络相关
+  // Network related
   getNetworkId(): Promise<bigint>;
   switchNet(chainHexId: string): Promise<void>;
   
-  // 签名相关
+  // Signing related
   sign(message: string): Promise<string>;
   getJsonRpcSigner(): Promise<JsonRpcSigner>;
   
-  // 合约相关
+  // Contract related
   getContractWithSigner(contractAddress: string, abi: InterfaceAbi): Promise<DelphinusContract>;
   getContractWithoutSigner(contractAddress: string, abi: InterfaceAbi): DelphinusContract;
   
-  // 事件订阅
+  // Event subscription
   subscribeEvent<T>(eventName: string, cb: (event: T) => unknown): void;
   onAccountChange<T>(cb: (account: string) => T): void;
 }
 
-// Provider 配置接口
+// Provider configuration interface
 export interface ProviderConfig {
   type: 'browser' | 'rainbow' | 'readonly' | 'wallet';
   providerUrl?: string;
@@ -54,7 +54,7 @@ export interface ProviderConfig {
   chainId?: number;
 }
 
-// 全局 Provider 管理器
+// Global Provider manager
 class ProviderManager {
   private static instance: ProviderManager;
   private currentProvider: DelphinusProvider | null = null;
@@ -69,13 +69,13 @@ class ProviderManager {
     return ProviderManager.instance;
   }
 
-  // 设置 Provider 配置
+  // Set Provider configuration
   setProviderConfig(config: ProviderConfig) {
     this.providerConfig = config;
-    this.currentProvider = null; // 清除当前 provider，下次获取时重新创建
+    this.currentProvider = null; // Clear current provider, recreate on next get
   }
 
-  // 获取当前 Provider
+  // Get current Provider
   async getProvider(): Promise<DelphinusProvider> {
     if (!this.providerConfig) {
       throw new Error("Provider config not set. Please call setProviderConfig first.");
@@ -88,7 +88,7 @@ class ProviderManager {
     return this.currentProvider;
   }
 
-  // 创建 Provider 实例
+  // Create Provider instance
   private async createProvider(config: ProviderConfig): Promise<DelphinusProvider> {
     switch (config.type) {
       case 'browser':
@@ -111,7 +111,7 @@ class ProviderManager {
     }
   }
 
-  // 清除当前 Provider
+  // Clear current Provider
   clearProvider() {
     if (this.currentProvider) {
       this.currentProvider.close();
@@ -120,37 +120,37 @@ class ProviderManager {
     this.providerConfig = null;
   }
 
-  // 只清理 provider 实例，保留配置
+      // Only clear provider instance, keep configuration
   clearProviderInstance() {
     if (this.currentProvider) {
       this.currentProvider.close();
       this.currentProvider = null;
     }
-    // 保留 providerConfig，这样下次 getProvider 时可以重新创建
+    // Keep providerConfig so it can be recreated on next getProvider call
   }
 }
 
-// 全局获取 Provider 的函数
+// Global function to get Provider
 export async function getProvider(): Promise<DelphinusProvider> {
   return await ProviderManager.getInstance().getProvider();
 }
 
-// 设置 Provider 配置的函数
+// Function to set Provider configuration
 export function setProviderConfig(config: ProviderConfig) {
   ProviderManager.getInstance().setProviderConfig(config);
 }
 
-// 清除 Provider 的函数
+// Function to clear Provider
 export function clearProvider() {
   ProviderManager.getInstance().clearProvider();
 }
 
-// 只清除 Provider 实例，保留配置
+// Only clear Provider instance, keep configuration
 export function clearProviderInstance() {
   ProviderManager.getInstance().clearProviderInstance();
 }
 
-// 通用的 withProvider 函数
+// Generic withProvider function
 export async function withProvider<T>(
   callback: (provider: DelphinusProvider) => Promise<T>
 ): Promise<T> {
@@ -162,7 +162,7 @@ export async function withProvider<T>(
   }
 }
 
-// 抽象基类，提供通用的 Provider 功能
+// Abstract base class providing common Provider functionality
 export abstract class DelphinusBaseProvider<T extends AbstractProvider> implements DelphinusProvider {
   readonly provider: T;
   
@@ -170,7 +170,7 @@ export abstract class DelphinusBaseProvider<T extends AbstractProvider> implemen
     this.provider = provider;
   }
 
-  // 基础方法实现
+  // Basic method implementations
   async subscribeEvent<T>(eventName: string, cb: (event: T) => unknown) {
     return this.provider.on(eventName, cb);
   }
@@ -179,7 +179,7 @@ export abstract class DelphinusBaseProvider<T extends AbstractProvider> implemen
     return new DelphinusContract(contractAddress, abi, this.provider);
   }
 
-  // 抽象方法，子类必须实现
+  // Abstract methods, must be implemented by subclasses
   abstract connect(): Promise<string>;
   abstract close(): void;
   abstract getNetworkId(): Promise<bigint>;
@@ -190,7 +190,7 @@ export abstract class DelphinusBaseProvider<T extends AbstractProvider> implemen
   abstract onAccountChange<T>(cb: (account: string) => T): void;
 }
 
-// 抽象签名者基类
+// Abstract signer base class
 export abstract class DelphinusBaseSigner<T extends AbstractSigner> implements DelphinusProvider {
   readonly signer: T;
   
@@ -213,7 +213,7 @@ export abstract class DelphinusBaseSigner<T extends AbstractSigner> implements D
     return new DelphinusContract(contractAddress, abi, this.provider);
   }
 
-  // 抽象方法，子类必须实现
+  // Abstract methods, must be implemented by subclasses
   abstract connect(): Promise<string>;
   abstract close(): void;
   abstract getNetworkId(): Promise<bigint>;
@@ -224,10 +224,10 @@ export abstract class DelphinusBaseSigner<T extends AbstractSigner> implements D
   abstract onAccountChange<T>(cb: (account: string) => T): void;
 }
 
-// DelphinusBaseProvider 类型别名
+// DelphinusBaseProvider type alias
 export type DelphinusBaseProviderType = WebSocketProvider | JsonRpcProvider;
 
-// 获取基础 Provider 的辅助函数
+// Helper function to get base Provider
 export function GetBaseProvider(providerUrl: string) {
   if (providerUrl.startsWith("ws")) {
     return new WebSocketProvider(providerUrl);
@@ -236,14 +236,14 @@ export function GetBaseProvider(providerUrl: string) {
   }
 }
 
-// 扩展 window 接口以识别 ethereum
+// Extend window interface to recognize ethereum
 declare global {
   interface Window {
     ethereum?: any;
   }
 }
 
-// 浏览器 Provider 实现（MetaMask 等）
+// Browser Provider implementation (MetaMask etc.)
 export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProvider> {
   constructor() {
     if (!window.ethereum) {
@@ -253,16 +253,16 @@ export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProv
   }
 
   async connect(): Promise<string> {
-    // 首先请求账户访问权限
+    // First request account access permission
     await this.provider.send("eth_requestAccounts", []);
     const signer = await this.provider.getSigner();
     return await signer.getAddress();
   }
 
   close() {
-    // 注意：不要销毁 provider，因为它可能被其他地方使用
+    // Note: Don't destroy provider as it may be used elsewhere
     // this.provider.destroy();
-    // 只是标记为关闭状态
+    // Just mark as closed state
   }
 
   async onAccountChange<T>(cb: (account: string) => T) {
@@ -307,7 +307,7 @@ export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProv
   }
 }
 
-// Wagmi 配置
+// Wagmi configuration
 let wagmiConfig: ReturnType<typeof createConfig> | null = null;
 
 function getWagmiConfig() {
@@ -337,7 +337,7 @@ function getWagmiConfig() {
   return wagmiConfig;
 }
 
-// RainbowKit Provider 实现
+// RainbowKit Provider implementation
 export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProvider> {
   private signer: JsonRpcSigner | null = null;
   private account: string | null = null;
@@ -352,7 +352,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     this.config = getWagmiConfig();
   }
 
-  // 初始化方法，需要从 RainbowKit hooks 获取数据
+  // Initialization method, needs to get data from RainbowKit hooks
   async initialize(account: `0x${string}` | undefined, chainId: number) {
     if (!account) {
       throw new Error("No account connected");
@@ -363,14 +363,14 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     this.signer = await this.provider.getSigner(account);
   }
 
-    // 创建真正的 RainbowKit 风格连接模态框
+    // Create genuine RainbowKit style connection modal
   private async connectWithRainbowKit(): Promise<string> {
     try {
-      // 获取可用的连接器
+      // Get available connectors
       const connectors = this.config.connectors;
       
       return new Promise((resolve, reject) => {
-        // 创建 RainbowKit 风格的模态框
+        // Create RainbowKit style modal
         const modalOverlay = document.createElement('div');
         modalOverlay.style.cssText = `
           position: fixed;
@@ -387,7 +387,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           animation: fadeIn 0.2s ease-out;
         `;
 
-        // 添加动画样式
+        // Add animation styles
         const style = document.createElement('style');
         style.textContent = `
           @keyframes fadeIn {
@@ -424,7 +424,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
         `;
 
-        // 顶部关闭按钮
+        // Top close button
         const closeBtn = document.createElement('button');
         closeBtn.innerHTML = '✕';
         closeBtn.style.cssText = `
@@ -470,14 +470,14 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           gap: 8px;
         `;
 
-        // 钱包图标映射
+        // Wallet icon mapping
         const walletIcons = {
           'MetaMask': `<svg width="24" height="24" viewBox="0 0 318.6 318.6" fill="none"><path d="m274.1 35.5-99.5 73.9L193 65.8z" fill="#e2761b"/><path d="m44.4 35.5 98.7 74.6-17.5-44.3z" fill="#e4761b"/><path d="m238.3 206.8-26.5 40.6 56.7 15.6 16.3-55.3z" fill="#e4761b"/><path d="m33.9 207.7 16.2 55.3 56.7-15.6-26.5-40.6z" fill="#e4761b"/></svg>`,
           'WalletConnect': `<svg width="24" height="24" viewBox="0 0 300 185" fill="#3b99fc"><path d="M61.4385 36.2562C109.367 -9.42187 190.633 -9.42187 238.562 36.2562L244.448 41.6729C246.893 43.9396 246.893 47.7604 244.448 50.0271L224.408 68.9729C223.185 70.1062 221.174 70.1062 219.951 68.9729L211.107 60.8187C179.577 30.5771 120.423 30.5771 88.8926 60.8187L79.2963 69.8729C78.0741 71.0062 76.0630 71.0062 74.8407 69.8729L54.8007 50.9271C52.3556 48.6604 52.3556 44.8396 54.8007 42.5729L61.4385 36.2562Z"/></svg>`,
           'Coinbase Wallet': `<svg width="24" height="24" viewBox="0 0 1024 1024" fill="#0052ff"><path d="M512 0C229.2 0 0 229.2 0 512s229.2 512 512 512 512-229.2 512-512S794.8 0 512 0zm0 692c-99.4 0-180-80.6-180-180s80.6-180 180-180 180 80.6 180 180-80.6 180-180 180z"/></svg>`
         };
 
-        // 为每个连接器创建按钮
+        // Create button for each connector
         connectors.forEach((connector) => {
           const btn = document.createElement('button');
           const iconHtml = walletIcons[connector.name as keyof typeof walletIcons] || 
@@ -515,14 +515,14 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           document.head.appendChild(loadingStyle);
 
           btn.onclick = async () => {
-            // 显示加载状态
+            // Show loading state
             const loading = btn.querySelector('.loading') as HTMLElement;
             if (loading) loading.style.display = 'block';
             btn.style.opacity = '0.7';
             btn.style.cursor = 'not-allowed';
             
             try {
-              // 使用 wagmi 连接
+              // Use wagmi to connect
               const result = await connect(this.config, { connector });
               
               if (result.accounts && result.accounts.length > 0) {
@@ -530,7 +530,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
                 this.chainId = result.chainId;
                 this.signer = await this.provider.getSigner(result.accounts[0]);
                 
-                // 清理
+                // Cleanup
                 document.body.removeChild(modalOverlay);
                 document.head.removeChild(style);
                 document.head.removeChild(loadingStyle);
@@ -538,15 +538,15 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
                 resolve(result.accounts[0]);
               }
             } catch (error) {
-              // 恢复按钮状态
+              // Restore button state
               if (loading) loading.style.display = 'none';
               btn.style.opacity = '1';
               btn.style.cursor = 'pointer';
               
-              // 如果不是用户取消，显示错误
+              // If not user cancellation, show error
               if (error instanceof Error && !error.message.includes('User rejected')) {
                 console.error('Connection failed:', error);
-                // 可以在这里显示错误提示
+                // Can show error message here
               }
             }
           };
@@ -554,7 +554,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           walletContainer.appendChild(btn);
         });
 
-        // 底部信息
+        // Bottom info
         const footer = document.createElement('div');
         footer.style.cssText = `
           margin-top: 20px;
@@ -570,7 +570,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
         `;
         footerText.style.margin = '0';
 
-        // 事件处理
+        // Event handling
         closeBtn.onclick = () => {
           document.body.removeChild(modalOverlay);
           document.head.removeChild(style);
@@ -585,7 +585,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           }
         };
 
-        // 组装模态框
+        // Assemble modal
         modalContent.style.position = 'relative';
         modalContent.appendChild(closeBtn);
         modalContent.appendChild(title);
@@ -601,12 +601,12 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   }
 
   async connect(): Promise<string> {
-    // 如果已经初始化，直接返回账户
+    // If already initialized, return account directly
     if (this.account) {
       return this.account;
     }
 
-    // 检查是否已经连接
+    // Check if already connected
     try {
       const accounts = await this.provider.send("eth_accounts", []);
       if (accounts.length > 0) {
@@ -620,12 +620,12 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       console.log('No existing connection found');
     }
 
-    // 显示连接模态框
+    // Show connection modal
     return await this.connectWithRainbowKit();
   }
 
   close() {
-    // 注意：不要销毁 provider，因为它可能被其他地方使用
+    // Note: Don't destroy provider as it may be used elsewhere
     // this.provider.destroy();
     this.signer = null;
     this.account = null;
@@ -633,7 +633,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   }
 
   async onAccountChange<T>(cb: (account: string) => T) {
-    // 这个功能将通过 wagmi 的 useAccount hook 处理
+    // This functionality will be handled by wagmi's useAccount hook
     console.log("Account change handling moved to wagmi useAccount hook");
   }
 
@@ -689,10 +689,10 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           { chainId: chainHexId },
         ]);
         
-        // 更新内部状态
+        // Update internal state
         this.chainId = chainId;
         if (this.account) {
-          // 重新获取 signer 以确保它使用新的网络
+          // Re-get signer to ensure it uses the new network
           this.signer = await this.provider.getSigner(this.account);
         }
       } catch (e) {
@@ -710,7 +710,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   }
 }
 
-// 只读 Provider 实现（非浏览器环境，无私钥）
+// Read-only Provider implementation (non-browser environment, no private key)
 export class DelphinusReadOnlyConnector extends DelphinusBaseProvider<DelphinusBaseProviderType> {
   constructor(providerUrl: string) {
     super(GetBaseProvider(providerUrl));
@@ -721,7 +721,7 @@ export class DelphinusReadOnlyConnector extends DelphinusBaseProvider<DelphinusB
   }
 
   close() {
-    // 只读 provider 不需要特殊清理
+    // Read-only provider doesn't need special cleanup
   }
 
   async onAccountChange<T>(cb: (account: string) => T) {
@@ -753,7 +753,7 @@ export class DelphinusReadOnlyConnector extends DelphinusBaseProvider<DelphinusB
   }
 }
 
-// 钱包 Provider 实现（非浏览器环境，有私钥）
+// Wallet Provider implementation (non-browser environment, with private key)
 export class DelphinusWalletConnector extends DelphinusBaseSigner<Wallet> {
   constructor(privateKey: string, provider: DelphinusBaseProviderType) {
     super(new Wallet(privateKey, provider));
@@ -764,7 +764,7 @@ export class DelphinusWalletConnector extends DelphinusBaseSigner<Wallet> {
   }
 
   close() {
-    // 钱包 provider 不需要特殊清理
+    // Wallet provider doesn't need special cleanup
   }
 
   async onAccountChange<T>(cb: (account: string) => T) {
@@ -798,7 +798,7 @@ export class DelphinusWalletConnector extends DelphinusBaseSigner<Wallet> {
     return new DelphinusContract(contractAddress, abi, this.signer);
   }
 
-  // 模拟调用合约方法
+  // Simulate calling contract method
   async call(req: TransactionRequest) {
     return await this.signer.call(req);
   }

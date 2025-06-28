@@ -17,7 +17,7 @@ export function createDelphinusRainbowKitConfig(options?: {
   projectId?: string;
   chains?: readonly [Chain, ...Chain[]];
 }) {
-  // 如果已经有缓存的配置，直接返回
+  // If cached configuration exists, return directly
   if (cachedConfig) {
     return cachedConfig;
   }

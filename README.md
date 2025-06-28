@@ -8,7 +8,7 @@ A modern, type-safe SDK for zkWasm Mini Rollup integration with unified Provider
 - **🎨 Modern UI Integration** - Complete RainbowKit components exported from SDK
 - **⚡ Simplified Setup** - Single `DelphinusProvider` replaces complex provider nesting
 - **🔧 Environment Management** - Unified REACT_APP_ prefix across all project types
-- **🔄 Backward Compatibility** - Legacy exports maintained with deprecation warnings
+- **🔄 Compatibility** - Support for multiple React project types
 - **🎯 Type Safety** - Full TypeScript support with comprehensive type definitions
 - **🌐 Cross-Platform** - Works with CRA, Next.js, Vite, and custom builds
 - **⚡ Performance Optimized** - Caching to prevent duplicate initializations
@@ -536,7 +536,7 @@ import React, { memo, useMemo } from 'react';
 
 const WalletComponent = memo(function WalletComponent() {
   const wallet = useZkWasmWallet();
-  
+
   const walletInfo = useMemo(() => ({
     isConnected: wallet.isConnected,
     address: wallet.address,
@@ -563,34 +563,11 @@ React.useEffect(() => {
 }, []);
 ```
 
-## 📋 Migration Guide
+## 📋 Usage Guide
 
-### From Legacy Version
+### Quick Start
 
-#### Old Setup ❌
-```tsx
-// Complex multi-layer provider setup
-import { WagmiProvider } from 'wagmi';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { Provider } from 'react-redux';
-
-function App() {
-  return (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider>
-          <Provider store={store}>
-            <YourApp />
-          </Provider>
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
-  );
-}
-```
-
-#### New Setup ✅
+#### Recommended Setup ✅
 ```tsx
 // Simplified single provider
 import { DelphinusProvider } from 'zkwasm-minirollup-browser';
@@ -604,12 +581,12 @@ function App() {
 }
 ```
 
-### Migration Steps
+### Configuration Steps
 
-1. **Update main.tsx/index.tsx** - Replace complex provider setup with `DelphinusProvider`
-2. **Update environment variables** - Use unified `REACT_APP_` prefix
-3. **Update component imports** - Import from SDK instead of direct packages
-4. **Test functionality** - Verify wallet connection, signing, and deposits work
+1. **Update main.tsx/index.tsx** - Use `DelphinusProvider`
+2. **Set environment variables** - Use unified `REACT_APP_` prefix
+3. **Import components** - Import required components from SDK
+4. **Test functionality** - Verify wallet connection, signing, and deposit functions
 
 ## 🏆 Architecture Rating
 

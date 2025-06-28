@@ -1,4 +1,4 @@
-// 环境变量适配器 - 统一使用 REACT_APP_ 前缀
+// Environment variable adapter - unified use of REACT_APP_ prefix
 
 export interface EnvConfig {
   chainId: number;
@@ -8,10 +8,10 @@ export interface EnvConfig {
   mode: string;
 }
 
-// 统一的环境变量获取函数
+// Unified environment variable getter function
 export function getEnvConfig(): EnvConfig {
   const defaultConfig: EnvConfig = {
-    chainId: 11155111, // 默认 Sepolia testnet
+    chainId: 11155111, // Default Sepolia testnet
     depositContract: '',
     tokenContract: '',
     walletConnectId: '',
@@ -19,7 +19,7 @@ export function getEnvConfig(): EnvConfig {
   };
 
   try {
-    // 1. 优先检查 Vite 环境 (import.meta.env)
+    // 1. Priority check Vite environment (import.meta.env)
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
       const env = (import.meta as any).env;
       return {
@@ -31,7 +31,7 @@ export function getEnvConfig(): EnvConfig {
       };
     }
     
-    // 2. 检查 Node.js 环境 (process.env) - 适用于 Create React App, Next.js 等
+    // 2. Check Node.js environment (process.env) - for Create React App, Next.js etc.
     if (typeof process !== 'undefined' && process.env) {
       return {
         chainId: parseInt(process.env.REACT_APP_CHAIN_ID || '11155111'),
@@ -42,7 +42,7 @@ export function getEnvConfig(): EnvConfig {
       };
     }
     
-    // 3. 检查全局变量 (适用于某些构建工具)
+    // 3. Check global variables (for certain build tools)
     if (typeof window !== 'undefined' && (window as any).__ENV__) {
       const env = (window as any).__ENV__;
       return {
@@ -54,7 +54,7 @@ export function getEnvConfig(): EnvConfig {
       };
     }
     
-    // 4. 检查自定义全局变量
+    // 4. Check custom global variables
     if (typeof window !== 'undefined' && (window as any).APP_CONFIG) {
       const config = (window as any).APP_CONFIG;
       return {
@@ -73,7 +73,7 @@ export function getEnvConfig(): EnvConfig {
   return defaultConfig;
 }
 
-// 单独获取特定环境变量的函数
+// Functions to get specific environment variables individually
 export function getChainId(): number {
   return getEnvConfig().chainId;
 }
@@ -94,7 +94,7 @@ export function getMode(): string {
   return getEnvConfig().mode;
 }
 
-// 验证环境配置
+// Validate environment configuration
 export function validateEnvConfig(): { isValid: boolean; errors: string[] } {
   const config = getEnvConfig();
   const errors: string[] = [];
@@ -121,7 +121,7 @@ export function validateEnvConfig(): { isValid: boolean; errors: string[] } {
   };
 }
 
-// 设置自定义配置 (适用于运行时配置)
+// Set custom configuration (for runtime configuration)
 let customConfig: Partial<EnvConfig> | null = null;
 
 export function setCustomConfig(config: Partial<EnvConfig>) {
@@ -132,7 +132,7 @@ export function getCustomConfig(): Partial<EnvConfig> | null {
   return customConfig;
 }
 
-// 获取最终配置 (合并自定义配置和环境变量)
+// Get final configuration (merge custom config and environment variables)
 export function getFinalConfig(): EnvConfig {
   const envConfig = getEnvConfig();
   const custom = getCustomConfig();
