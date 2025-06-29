@@ -80,87 +80,12 @@ async function loginL1Account() {
   });
 }
 
-// RainbowKit version of L1 account login function
-async function loginL1AccountWithRainbowKit(rainbowKitHooks: any) {
-  // If wallet is not connected, open connection modal first
-  if (!rainbowKitHooks.isConnected || !rainbowKitHooks.address) {
-    console.log('Wallet not connected, opening connect modal...');
-    if (rainbowKitHooks.openConnectModal) {
-      rainbowKitHooks.openConnectModal();
-    }
-    // Don't throw error, wait for user to connect wallet
-    throw new Error('Wallet connection required - please connect your wallet using the modal');
-  }
 
-  return await withRainbowKitConnector(async (adapter: DelphinusProvider) => {
-    const targetChainId = getChainId();
-    
-    console.log('Target chain ID:', targetChainId, 'Current chain ID:', rainbowKitHooks.chainId);
-    
-    // Check if current chain is correct, switch if not
-    if (rainbowKitHooks.chainId !== targetChainId) {
-      console.log('Switching to target chain:', targetChainId);
-      
-      try {
-        await rainbowKitHooks.switchChain({ chainId: targetChainId });
-        
-        // Wait for network switch to complete
-        console.log('Waiting for network switch to complete...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-      } catch (switchError: any) {
-        console.error('Failed to switch chain:', switchError);
-        
-        // If automatic switch fails, give user friendly prompt
-        if (switchError.code === 4902) {
-          throw new Error(`Please add chain ${targetChainId} to your wallet and switch to it manually.`);
-        } else {
-          throw new Error(`Please switch to chain ${targetChainId} manually in your wallet.`);
-        }
-      }
-    }
-    
-    // Don't rely on rainbowKitHooks.chainId, check provider's network directly
-    let currentNetwork;
-    try {
-      currentNetwork = await adapter.getNetworkId();
-      console.log('Current network ID from provider:', currentNetwork.toString());
-    } catch (error) {
-      console.error('Failed to get network ID, reinitializing adapter...');
-      // If getting network ID fails, reinitialize adapter
-      await reinitializeRainbowProvider(rainbowKitHooks.address, targetChainId);
-      currentNetwork = await adapter.getNetworkId();
-    }
-    
-    // Verify if network is correct
-    if (currentNetwork.toString() !== targetChainId.toString()) {
-      console.error(`Network mismatch: expected ${targetChainId}, got ${currentNetwork.toString()}`);
-      throw new Error(`Please manually switch to chain ${targetChainId} in your wallet. Current chain: ${currentNetwork.toString()}`);
-    }
-    
-    const signer = await adapter.getJsonRpcSigner();
-    const result = {
-      address: await signer.getAddress(),
-      chainId: currentNetwork.toString()
-    };
-    
-    console.log('L1 account login result:', result);
-    return result;
-  }, rainbowKitHooks);
-}
 
 async function loginL2Account(address: string): Promise<L2AccountInfo> {
   const str:string = await signMessage(address);
   console.log("signed result", str);
   return new L2AccountInfo(str.substring(0,34));
-}
-
-// RainbowKit version of L2 account login function
-async function loginL2AccountWithRainbowKit(address: string, rainbowKitHooks: any): Promise<L2AccountInfo> {
-  // Use RainbowKit's signing functionality
-  const signature = await rainbowKitHooks.signMessageAsync({ message: address });
-  console.log("signed result (RainbowKit)", signature);
-  return new L2AccountInfo(signature.substring(0,34));
 }
 
 const contractABI = {
@@ -326,93 +251,6 @@ async function deposit(chainId: number, tokenIndex: number, amount: number, l2ac
   }
 }
 
-// RainbowKit version of deposit function
-async function depositWithRainbowKit(
-  chainId: number, 
-  tokenIndex: number, 
-  amount: number, 
-  l2account: L2AccountInfo, 
-  l1account: L1AccountInfo,
-  rainbowKitHooks: any
-) {
-  try {
-    const txReceipt = await withRainbowKitConnector(async (adapter: DelphinusProvider) => {
-      const targetChainId = getChainId();
-      
-      console.log('Deposit: checking chain ID', { current: rainbowKitHooks.chainId, target: targetChainId });
-      
-      // Check if current chain is correct, switch if not
-      if (rainbowKitHooks.chainId !== targetChainId) {
-        console.log('Deposit: switching to target chain:', targetChainId);
-        await rainbowKitHooks.switchChain({ chainId: targetChainId });
-      }
-
-      const pubkey = l2account.pubkey;
-      const leHexBN = new LeHexBN(bnToHexLe(pubkey));
-      const pkeyArray = leHexBN.toU64Array();
-      const proxyAddr = getDepositContract();
-      const tokenAddr = getTokenContract();
-      
-      console.log('Deposit: contract addresses', { proxyAddr, tokenAddr });
-      
-      if (!proxyAddr || !tokenAddr) {
-        throw new Error("Deposit contract or token contract address not configured");
-      }
-      
-      const tokenContract = await adapter.getContractWithSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
-      const tokenContractReader = adapter.getContractWithoutSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
-      
-      const balance = await tokenContractReader.getEthersContract().balanceOf(l1account.address);
-      const allowance = await tokenContractReader.getEthersContract().allowance(l1account.address, proxyAddr);
-      
-      console.log("Deposit: token balance:", balance.toString());
-      console.log("Deposit: allowance:", allowance.toString());
-      
-      let a = new BN(amount);
-      let b = new BN("10").pow(new BN(18));
-      const amountWei = a.mul(b);
-      
-      console.log("Deposit: amount in wei:", amountWei.toString());
-      
-      if (allowance < amountWei) {
-        console.log("Deposit: need to approve, current allowance insufficient");
-        if (balance >= amountWei) {
-          console.log("Deposit: approving token spend...");
-          const tx = await tokenContract.getEthersContract().approve(proxyAddr, balance);
-          console.log("Deposit: approval transaction sent:", tx.hash);
-          await tx.wait();
-          console.log("Deposit: approval transaction confirmed");
-        } else {
-          throw Error(`Not enough balance for deposit. Required: ${amountWei.toString()}, Available: ${balance.toString()}`);
-        }
-      }
-      
-      const proxyContract = await adapter.getContractWithSigner(proxyAddr, JSON.stringify(contractABI.proxyABI));
-      console.log("Deposit: calling topup function with params:", {
-        tokenIndex: Number(tokenIndex),
-        pid1: pkeyArray[1],
-        pid2: pkeyArray[2], 
-        amount: BigInt(amountWei.toString())
-      });
-      
-      const tx = await proxyContract.getEthersContract().topup(
-        Number(tokenIndex),
-        pkeyArray[1],
-        pkeyArray[2],
-        BigInt(amountWei.toString()),
-      );
-      console.log("Deposit: topup transaction sent:", tx.hash);
-      const txReceipt = await tx.wait();
-      console.log("Deposit: topup transaction confirmed:", txReceipt);
-      return txReceipt;
-    }, rainbowKitHooks);
-    return txReceipt;
-  } catch (e) {
-    console.error("Deposit error:", e);
-    throw e;
-  }
-}
-
 export interface AccountState {
   l1Account?: L1AccountInfo;
   l2account?: L2AccountInfo;  // Restore using L2AccountInfo
@@ -470,57 +308,7 @@ export const depositAsync = createAsyncThunk(
   }
 );
 
-// RainbowKit version of thunk functions
-export const loginL1AccountWithRainbowKitAsync = createAsyncThunk(
-  'account/fetchAccountRainbowKit',
-  async (rainbowKitHooks: any, thunkApi) => {
-    const account = await loginL1AccountWithRainbowKit(rainbowKitHooks);
-    return account;
-  }
-);
 
-export const loginL2AccountWithRainbowKitAsync = createAsyncThunk(
-  'account/deriveL2AccountRainbowKit',
-  async (params: {appName: string, rainbowKitHooks: any}, thunkApi) => {
-    const l2account = await loginL2AccountWithRainbowKit(params.appName, params.rainbowKitHooks);
-    return l2account;  // Return L2AccountInfo instance directly
-  }
-);
-
-export const depositWithRainbowKitAsync = createAsyncThunk(
-  'account/depositRainbowKit',
-  async (params: {
-    tokenIndex: number, 
-    amount: number, 
-    l2account: L2AccountInfo, 
-    l1account: L1AccountInfo,
-    rainbowKitHooks: any
-  }, thunkApi) => {
-    const txReceipt = await depositWithRainbowKit(
-      getChainId(), 
-      params.tokenIndex, 
-      params.amount, 
-      params.l2account, 
-      params.l1account,
-      params.rainbowKitHooks
-    );
-    
-    if (!txReceipt) {
-      throw new Error('Transaction failed: no receipt received');
-    }
-    
-    // Return only serializable transaction information
-    return {
-      hash: txReceipt.hash,
-      blockNumber: txReceipt.blockNumber,
-      blockHash: txReceipt.blockHash,
-      gasUsed: txReceipt.gasUsed?.toString(),
-      status: txReceipt.status,
-      to: txReceipt.to,
-      from: txReceipt.from
-    };
-  }
-);
 
 // Complete wallet connection and L1 login flow
 export const connectWalletAndLoginL1Async = createAsyncThunk(
@@ -573,7 +361,7 @@ export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
     
     // Wallet connected, proceed with L1 login
     console.log('Wallet connected, proceeding with L1 login...');
-    const account = await loginL1AccountWithRainbowKit(rainbowKitHooks);
+    const account = await loginL1Account();
     return account;
   }
 );
@@ -618,40 +406,6 @@ export const accountSlice = createSlice({
       .addCase(depositAsync.fulfilled, (state, c) => {
         state.status = 'Ready';
         console.log(c.payload);
-      })
-      // RainbowKit version action handling
-      .addCase(loginL1AccountWithRainbowKitAsync.pending, (state) => {
-        state.status = 'LoadingL1';
-      })
-      .addCase(loginL1AccountWithRainbowKitAsync.fulfilled, (state, c) => {
-        state.status = 'Ready';
-        state.l1Account = c.payload;
-      })
-      .addCase(loginL1AccountWithRainbowKitAsync.rejected, (state, c) => {
-        state.status = 'L1AccountError';
-      })
-      .addCase(loginL2AccountWithRainbowKitAsync.pending, (state) => {
-        state.status = 'LoadingL2';
-      })
-      .addCase(loginL2AccountWithRainbowKitAsync.fulfilled, (state, c) => {
-        state.status = 'Ready';
-        console.log(c);
-        state.l2account = c.payload;
-      })
-      .addCase(loginL2AccountWithRainbowKitAsync.rejected, (state, c) => {
-        state.status = 'L2AccountError';
-      })
-      .addCase(depositWithRainbowKitAsync.pending, (state) => {
-        state.status = 'Deposit';
-        console.log("deposit async is pending (RainbowKit) ....");
-      })
-      .addCase(depositWithRainbowKitAsync.fulfilled, (state, c) => {
-        state.status = 'Ready';
-        console.log(c.payload);
-      })
-      .addCase(depositWithRainbowKitAsync.rejected, (state, c) => {
-        state.status = 'Ready';
-        console.error('Deposit failed:', c.error);
       })
       // Complete connection and login flow
       .addCase(connectWalletAndLoginL1WithHooksAsync.pending, (state) => {
@@ -901,11 +655,11 @@ export function useZkWasmWallet() {
       });
       
       // Update Redux state
-      dispatch(loginL2AccountWithRainbowKitAsync.fulfilled(result, '', { appName, rainbowKitHooks: {} }));
+      dispatch(loginL2AccountAsync.fulfilled(result, '', appName));
       return result;
     } catch (error) {
       console.error('L2 login failed:', error);
-      dispatch(loginL2AccountWithRainbowKitAsync.rejected(error as any, '', { appName, rainbowKitHooks: {} }));
+      dispatch(loginL2AccountAsync.rejected(error as any, '', appName));
       throw error;
     }
   }, [address, chainId]);
@@ -921,7 +675,7 @@ export function useZkWasmWallet() {
     }
 
     try {
-      dispatch(depositWithRainbowKitAsync.pending('', { ...params, rainbowKitHooks: {} }));
+      dispatch(depositAsync.pending('', params));
       
       // Ensure RainbowKit provider is initialized
       const { getProvider, DelphinusRainbowConnector } = await import('./provider');
@@ -1022,11 +776,11 @@ export function useZkWasmWallet() {
         };
       });
       
-      dispatch(depositWithRainbowKitAsync.fulfilled(result, '', { ...params, rainbowKitHooks: {} }));
+      dispatch(depositAsync.fulfilled(result, '', params));
       return result;
     } catch (error) {
       console.error('Deposit failed:', error);
-      dispatch(depositWithRainbowKitAsync.rejected(error as any, '', { ...params, rainbowKitHooks: {} }));
+      dispatch(depositAsync.rejected(error as any, '', params));
       throw error;
     }
   }, [address, chainId]);
@@ -1106,18 +860,7 @@ export function createZkWasmWalletHook(wagmiHooks: {
     };
 
     const loginL2 = (dispatch: any, appName: string = "0xAUTOMATA") => {
-      const rainbowKitHooks = {
-        address,
-        chainId,
-        signMessageAsync,
-        switchChain,
-        isConnected
-      };
-      
-      return dispatch(loginL2AccountWithRainbowKitAsync({
-        appName,
-        rainbowKitHooks
-      }));
+      return dispatch(loginL2AccountAsync(appName));
     };
 
     const deposit = (dispatch: any, params: {
@@ -1126,18 +869,7 @@ export function createZkWasmWalletHook(wagmiHooks: {
       l2account: L2AccountInfo;
       l1account: L1AccountInfo;
     }) => {
-      const rainbowKitHooks = {
-        address,
-        chainId,
-        signMessageAsync,
-        switchChain,
-        isConnected
-      };
-      
-      return dispatch(depositWithRainbowKitAsync({
-        ...params,
-        rainbowKitHooks
-      }));
+      return dispatch(depositAsync(params));
     };
 
     const reset = (dispatch: any) => {

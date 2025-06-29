@@ -19,13 +19,6 @@ export async function signMessage(message: string) {
   return signature;
 }
 
-// RainbowKit version of message signing function
-export async function signMessageWithRainbowKit(message: string, rainbowKitHooks: any) {
-  // Use RainbowKit hooks signing functionality directly
-  const signature = await rainbowKitHooks.signMessageAsync({ message });
-  return signature;
-}
-
 export async function switchNetwork(chainId: number) {
   await withProvider(async (provider) => {
     if (!provider) {
@@ -33,12 +26,6 @@ export async function switchNetwork(chainId: number) {
     }
     await provider.switchNet("0x" + chainId.toString(16));
   });
-}
-
-// RainbowKit version of network switching function
-export async function switchNetworkWithRainbowKit(chainId: number, rainbowKitHooks: any) {
-  // Use RainbowKit hooks network switching functionality
-  await rainbowKitHooks.switchChain({ chainId });
 }
 
 
