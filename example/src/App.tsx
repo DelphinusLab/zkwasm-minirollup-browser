@@ -2,7 +2,6 @@ import '@rainbow-me/rainbowkit/styles.css';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  resetAccountState,
   useZkWasmWallet,
   getEnvConfig,
   validateEnvConfig,
@@ -13,7 +12,6 @@ import {
   // Import RainbowKit components from SDK
   ConnectButton,
   useConnectModal,
-  useAccount,
 } from '../../src/index';
 import './App.css';
 
@@ -31,7 +29,6 @@ function App() {
   
   // RainbowKit hooks (exported from SDK)
   const { openConnectModal } = useConnectModal();
-  const rainbowAccount = useAccount();
   
   // Use zkWasm SDK Hook to replace all wagmi hooks
   const wallet = useZkWasmWallet();
@@ -113,9 +110,9 @@ function App() {
   useEffect(() => {
     if (!isConnected) {
       console.log('Wallet disconnected, resetting account state');
-      dispatch(resetAccountState());
+      reset(dispatch);
     }
-  }, [isConnected, dispatch]);
+  }, [isConnected, dispatch, reset]);
 
   // Auto L1 login when wallet is connected - optimized conditions and dependencies
   useEffect(() => {
@@ -330,13 +327,13 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
           </div>
 
           <div className="demo-section">
-            <h3>useAccount Hook</h3>
+            <h3>useZkWasmWallet Hook (Recommended)</h3>
             <div className="account-status">
-              <p><strong>Connected:</strong> {rainbowAccount.isConnected ? 'Yes' : 'No'}</p>
-              {rainbowAccount.address && <p><strong>Address:</strong> {rainbowAccount.address}</p>}
-              {rainbowAccount.chainId && <p><strong>Chain ID:</strong> {rainbowAccount.chainId}</p>}
+              <p><strong>Connected:</strong> {isConnected ? 'Yes' : 'No'}</p>
+              {address && <p><strong>Address:</strong> {address}</p>}
+              {chainId && <p><strong>Chain ID:</strong> {chainId}</p>}
             </div>
-            <p><small>Direct access to wallet state via Wagmi hooks</small></p>
+            <p><small>Unified wallet state via zkWasm SDK (replaces useAccount)</small></p>
           </div>
         </div>
         
