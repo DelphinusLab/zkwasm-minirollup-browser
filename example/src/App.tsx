@@ -129,7 +129,7 @@ function App() {
       console.log('Wallet connected, attempting L1 login...', { address, chainId });
       handleL1Login();
     }
-  }, [isConnected, address, status, handleL1Login]);
+  }, [isConnected, address, l1Account, status, handleL1Login]);
 
   // L2 account login
   const handleL2Login = async () => {
@@ -180,8 +180,8 @@ function App() {
       await walletDeposit(dispatch, {
         tokenIndex: 0,
         amount: Number(depositAmount),
-        l2account: l2account,
-        l1account: l1Account
+        l2account: l2account!,
+        l1account: l1Account!
       });
       
       console.log('Deposit successful');

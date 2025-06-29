@@ -48,7 +48,7 @@ Create a `.env` file:
 REACT_APP_CHAIN_ID=11155111
 REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
 REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
-REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id   // needed when choose rainbow provider
 
 # Optional Configuration
 REACT_APP_MODE=development
@@ -57,16 +57,6 @@ REACT_APP_MODE=development
 > **Note**: The new Provider pattern uses unified `REACT_APP_` prefix for all project types (CRA, Next.js, Vite).
 
 ## 🏗️ Architecture Overview
-
-### Design Principles
-
-The SDK follows modern **Provider Design Pattern** with these core principles:
-
-1. **Single Responsibility** - Each component has a clear purpose
-2. **Interface Segregation** - Unified `DelphinusProvider` interface
-3. **Dependency Inversion** - Interface-driven programming
-4. **Open/Closed Principle** - Easy to extend with new Provider types
-5. **Liskov Substitution** - All Provider implementations are interchangeable
 
 ### Architecture Layers
 
@@ -195,10 +185,16 @@ function WalletComponent() {
 
   const handleConnect = async () => {
     try {
-      await connectAndLoginL1(dispatch);
-      console.log('Connected successfully!');
+      const result = await connectAndLoginL1(dispatch);
+      console.log('Connected successfully!', result);
     } catch (error) {
       console.error('Connection failed:', error);
+      // Handle different error types
+      if (error.message.includes('User rejected')) {
+        alert('Please approve the connection in your wallet');
+      } else {
+        alert(`Connection failed: ${error.message}`);
+      }
     }
   };
 
@@ -250,45 +246,6 @@ function WalletComponent() {
 }
 ```
 
-### withProvider for Low-level Operations
-
-```tsx
-import { withProvider, type DelphinusProvider } from 'zkwasm-minirollup-browser';
-
-// Sign messages
-const signMessage = async (message: string) => {
-  try {
-    const signature = await withProvider(async (provider: DelphinusProvider) => {
-      return await provider.sign(message);
-    });
-    console.log('Signature:', signature);
-    return signature;
-  } catch (error) {
-    console.error('Signing failed:', error);
-    throw error;
-  }
-};
-
-// Contract interactions
-const callContract = async () => {
-  try {
-    const result = await withProvider(async (provider: DelphinusProvider) => {
-      const contract = await provider.getContractWithSigner(
-        '0x1234567890123456789012345678901234567890',
-        ['function balanceOf(address) view returns (uint256)']
-      );
-      
-      return await contract.getEthersContract().balanceOf('0x...');
-    });
-    console.log('Balance:', result.toString());
-    return result;
-  } catch (error) {
-    console.error('Contract call failed:', error);
-    throw error;
-  }
-};
-```
-
 ### RainbowKit Components
 
 ```tsx
@@ -330,10 +287,31 @@ interface RootState {
   account: {
     l1Account?: L1AccountInfo;
     l2account?: L2AccountInfo;
-    status: 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
+    status: 'Initial' | 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
   };
 }
 ```
+
+### Status Flow
+
+The status field follows a clear state machine pattern:
+
+```
+Initial → LoadingL1 → Ready (L1 success)
+Initial → LoadingL1 → L1AccountError (L1 failure)
+
+Ready → LoadingL2 → Ready (L2 success) 
+Ready → LoadingL2 → L2AccountError (L2 failure)
+
+Ready → Deposit → Ready (deposit success/failure)
+```
+
+### Status Meanings
+
+- **`'Initial'`**: System just started, not ready yet
+- **`'Ready'`**: System is ready with available accounts
+- **`'Loading*'`**: Operation in progress
+- **`'*Error'`**: Operation failed, requires user action
 
 ### Using Redux Selectors
 
@@ -346,11 +324,23 @@ function StatusComponent() {
   const l2Account = useSelector(selectL2Account);
   const status = useSelector(selectLoginStatus);
 
+  // Derived status for UI
+  const isL1Connected = !!l1Account;
+  const isL2Connected = !!l2Account;
+  const isLoading = status.includes('Loading');
+  const hasError = status.includes('Error');
+  const isReady = status === 'Ready';
+
   return (
     <div>
       <p>L1 Account: {l1Account?.address || 'Not connected'}</p>
       <p>L2 Account: {l2Account ? 'Connected' : 'Not connected'}</p>
       <p>Status: {status}</p>
+      
+      {/* UI based on status */}
+      {isLoading && <div>Loading...</div>}
+      {hasError && <div>Error: {status}</div>}
+      {isReady && isL1Connected && <div>✅ Ready for operations</div>}
     </div>
   );
 }
@@ -479,153 +469,33 @@ if (!validation.isValid) {
 
 #### Connection Failures
 ```tsx
+import { useSelector } from 'react-redux';
+
 const handleConnect = async () => {
   try {
     await connectAndLoginL1(dispatch);
   } catch (error) {
     if (error.message.includes('User rejected')) {
       alert('Please approve the connection in your wallet');
+    } else if (error.message.includes('network')) {
+      alert('Please check your network connection');
     } else {
       console.error('Connection error:', error);
+      alert(`Connection failed: ${error.message}`);
     }
   }
 };
-```
 
-#### RainbowKit Styles Missing
-```tsx
-// Ensure styles are imported
-import '@rainbow-me/rainbowkit/styles.css';
-```
-
-## 📱 Project Type Configuration
-
-### Create React App (CRA)
-```env
-# .env
-REACT_APP_CHAIN_ID=11155111
-REACT_APP_DEPOSIT_CONTRACT=0x...
-REACT_APP_TOKEN_CONTRACT=0x...
-REACT_APP_WALLETCONNECT_PROJECT_ID=...
-```
-
-### Next.js
-```env
-# .env.local
-REACT_APP_CHAIN_ID=11155111
-REACT_APP_DEPOSIT_CONTRACT=0x...
-REACT_APP_TOKEN_CONTRACT=0x...
-REACT_APP_WALLETCONNECT_PROJECT_ID=...
-```
-
-### Vite
-```env
-# .env
-REACT_APP_CHAIN_ID=11155111
-REACT_APP_DEPOSIT_CONTRACT=0x...
-REACT_APP_TOKEN_CONTRACT=0x...
-REACT_APP_WALLETCONNECT_PROJECT_ID=...
-```
-
-## 🚀 Performance Optimization
-
-### Component Optimization
-
-```tsx
-import React, { memo, useMemo } from 'react';
-
-const WalletComponent = memo(function WalletComponent() {
-  const wallet = useZkWasmWallet();
-
-  const walletInfo = useMemo(() => ({
-    isConnected: wallet.isConnected,
-    address: wallet.address,
-    chainId: wallet.chainId
-  }), [wallet.isConnected, wallet.address, wallet.chainId]);
-
-  return (
-    <div>
-      {/* Optimized component rendering */}
-    </div>
-  );
-});
-```
-
-### Preload Configuration
-
-```tsx
-// Preload configuration at app startup
+// Monitor status changes for error handling
+const status = useSelector(selectLoginStatus);
 React.useEffect(() => {
-  setProviderConfig({ type: 'rainbow' });
-  
-  const envConfig = getEnvConfig();
-  console.log('Preloaded config:', envConfig);
-}, []);
+  if (status === 'L1AccountError') {
+    console.log('L1 connection failed, please retry');
+  } else if (status === 'L2AccountError') {
+    console.log('L2 login failed, please retry');
+  }
+}, [status]);
 ```
-
-## 📋 Usage Guide
-
-### Quick Start
-
-#### Recommended Setup ✅
-```tsx
-// Simplified single provider
-import { DelphinusProvider } from 'zkwasm-minirollup-browser';
-
-function App() {
-  return (
-    <DelphinusProvider appName="My App">
-      <YourApp />
-    </DelphinusProvider>
-  );
-}
-```
-
-### Configuration Steps
-
-1. **Update main.tsx/index.tsx** - Use `DelphinusProvider`
-2. **Set environment variables** - Use unified `REACT_APP_` prefix
-3. **Import components** - Import required components from SDK
-4. **Test functionality** - Verify wallet connection, signing, and deposit functions
-
-## 🏆 Architecture Rating
-
-| Dimension | Rating | Description |
-|-----------|--------|-------------|
-| Architecture Design | ⭐⭐⭐⭐⭐ | Follows SOLID principles, elegant design |
-| Code Quality | ⭐⭐⭐⭐⭐ | Type-safe, comprehensive error handling |
-| Maintainability | ⭐⭐⭐⭐⭐ | Modular design, clear responsibilities |
-| Extensibility | ⭐⭐⭐⭐⭐ | Easy to add new features and providers |
-| Performance | ⭐⭐⭐⭐ | Good overall performance, room for optimization |
-| Documentation | ⭐⭐⭐⭐ | Comprehensive docs, can be improved |
-
-**Overall Rating**: ⭐⭐⭐⭐⭐ (4.8/5)
-
-## 📋 Best Practices
-
-1. **Always use TypeScript** - Get better type safety and development experience
-2. **Use unified DelphinusProvider** - Simplify configuration and management
-3. **Set environment variables correctly** - Ensure all required configs are set
-4. **Handle error boundaries** - Provide friendly UX for wallet connection failures
-5. **Optimize component rendering** - Use memo and useMemo to avoid unnecessary re-renders
-6. **Test different scenarios** - Test compatibility with different wallets and networks
-
-## 🆘 Getting Help
-
-If you encounter issues:
-
-1. **Check Documentation** - Review this README and example code
-2. **View Examples** - Check the [example](./example) directory
-3. **Debug Mode** - Enable development environment logging
-4. **Community Support** - Ask questions in GitHub Issues
-
-## 📈 Future Roadmap
-
-1. **More Provider Support** - WalletConnect v2, Safe Wallet, etc.
-2. **Chain Abstraction** - Support for multi-chain operations
-3. **Offline Mode** - Support for offline signing and batch operations
-4. **Plugin System** - Allow third-party extensions
-5. **Performance Optimization** - Better caching and preloading strategies
 
 ## 📄 License
 
@@ -637,4 +507,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
-This SDK represents modern DApp SDK design best practices with excellent maintainability, extensibility, and user experience.
+For more detailed examples, see the [example](./example) directory.
