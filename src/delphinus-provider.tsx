@@ -5,8 +5,8 @@ import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { Provider as ReduxProvider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { mainnet, sepolia, type Chain } from 'wagmi/chains';
-import { accountSlice } from './reduxstate';
-import { getWalletConnectId, getEnvConfig } from './env-adapter';
+import { accountSliceReducer } from './reduxstate';
+import { getEnvConfig } from './config/env-adapter';
 
 // Cache configuration to avoid repeated initialization
 let cachedConfig: any = null;
@@ -89,7 +89,7 @@ function getDefaultStore() {
   if (!defaultStore) {
     defaultStore = configureStore({
       reducer: {
-        account: accountSlice.reducer,
+        account: accountSliceReducer,
       },
       middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
@@ -154,7 +154,7 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
 export function createDelphinusStore(additionalReducers?: any) {
   return configureStore({
     reducer: {
-      account: accountSlice.reducer,
+      account: accountSliceReducer,
       ...additionalReducers,
     },
     middleware: (getDefaultMiddleware) =>

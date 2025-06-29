@@ -13,13 +13,13 @@ export {
   
   // Concrete Provider implementations (only used ones)
   DelphinusRainbowConnector,
-} from "./provider.js";
+} from "./providers/provider";
 
 // Environment variable adapter exports
 export {
   getEnvConfig,
   validateEnvConfig,
-} from "./env-adapter.js";
+} from "./config/env-adapter";
 
 // ========================================
 // 🌈 RAINBOWKIT & WAGMI RE-EXPORTS
@@ -49,7 +49,7 @@ export {
   
   // Types
   type AccountState,
-} from './reduxstate.js';
+} from './reduxstate';
 
 // ========================================
 // 📚 Usage Guide

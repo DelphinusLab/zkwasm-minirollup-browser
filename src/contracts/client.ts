@@ -1,5 +1,5 @@
 import { Contract, Signer, Provider, InterfaceAbi } from "ethers";
-import { DelphinusProvider, withProvider } from "./provider.js";
+import { DelphinusProvider, withProvider } from "../providers/provider";
 
 export class DelphinusContract {
   private readonly contract: Contract;
@@ -83,7 +83,7 @@ export class DelphinusContract {
 }
 
 // New generic withProvider function, replaces all old withXXX functions
-export { withProvider } from "./provider.js";
+export { withProvider } from "../providers/provider";
 
 // For backward compatibility, keep old function names but use new Provider pattern internally
 export async function withBrowserConnector<T>(

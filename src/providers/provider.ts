@@ -11,8 +11,8 @@ import {
   TransactionRequest,
 } from "ethers";
 
-import { DelphinusContract } from "./client.js";
-import { getWalletConnectId } from './env-adapter';
+import { DelphinusContract } from "../contracts/client";
+import { getWalletConnectId } from '../config/env-adapter';
 
 // RainbowKit related imports
 import { connectorsForWallets } from '@rainbow-me/rainbowkit';
@@ -236,12 +236,6 @@ export function GetBaseProvider(providerUrl: string) {
   }
 }
 
-// Extend window interface to recognize ethereum
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
 
 // Browser Provider implementation (MetaMask etc.)
 export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProvider> {

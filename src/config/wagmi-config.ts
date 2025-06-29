@@ -67,9 +67,6 @@ function getTargetChain() {
   // If no corresponding chain found, return mainnet
   return targetChain;
 }
-
-const { walletConnectProjectId } = getProjectConfig();
-
 // Configure supported chains
 const targetChain = getTargetChain();
 

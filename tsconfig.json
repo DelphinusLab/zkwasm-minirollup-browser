@@ -5,6 +5,9 @@
     "module": "esnext",
     "sourceMap": true,
     "rootDir": "./src",
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
     "strict": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -14,5 +17,5 @@
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"],
-  "exclude": ["example", "node_modules"]
+  "exclude": ["example", "node_modules", "dist"]
 }

@@ -195,7 +195,7 @@ function App() {
   const handleTestSign = async () => {
     try {
       // Ensure RainbowKit provider is initialized (if using rainbow type)
-      const { getProvider, DelphinusRainbowConnector } = await import('../../src/provider');
+      const { getProvider, DelphinusRainbowConnector } = await import('../../src/providers/provider');
       const currentProvider = await getProvider();
       
       if (currentProvider instanceof DelphinusRainbowConnector && address && chainId) {

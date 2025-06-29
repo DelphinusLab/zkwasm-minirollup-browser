@@ -33,12 +33,17 @@
     "@vitejs/plugin-react": "^4.2.1",
     "vite": "^5.2.0"
   },
-  "main": "src/index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
     "build": "npx tsc",
     "postinstall": "npm run build",
     "dev:example": "npm run dev --workspace=example",
     "install:example": "npm install --workspace=example",
-    "clean": "rm -rf src/*.js && rm -rf src/*.d.ts && rm -rf src/*.js.map"
+    "clean": "rm -rf dist && find src -name '*.js' -delete && find src -name '*.d.ts' -delete && find src -name '*.js.map' -delete",
+    "prepublishOnly": "npm run clean && npm run build"
   }
 }
