@@ -1,5 +1,35 @@
-**/*.js
-**/*.js.map
+# 编译输出目录
+dist/
+# 临时生成的JS文件（如果有遗留在src中）
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+
+# 依赖
 **/node_modules
+
+# 构建产物
 target
 pkg
+
+# Example 项目
+example/node_modules
+example/dist
+example/build
+example/.env
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

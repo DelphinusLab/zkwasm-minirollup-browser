@@ -1,10 +1,5 @@
 import { Contract, Signer, Provider, InterfaceAbi } from "ethers";
-import {
-  DelphinusBaseProvider,
-  DelphinusBrowserConnector,
-  DelphinusReadOnlyConnector,
-  DelphinusWalletConnector,
-} from "./provider.js";
+import { DelphinusProvider, withProvider } from "../providers/provider";
 
 export class DelphinusContract {
   private readonly contract: Contract;
@@ -87,43 +82,31 @@ export class DelphinusContract {
   }
 }
 
+// New generic withProvider function, replaces all old withXXX functions
+export { withProvider } from "../providers/provider";
+
+// For backward compatibility, keep old function names but use new Provider pattern internally
 export async function withBrowserConnector<T>(
-  cb: (prov: DelphinusBrowserConnector) => Promise<T>
-) {
-  let provider = new DelphinusBrowserConnector();
-
-  try {
-    return await cb(provider);
-  } catch (e) {
-    throw e;
-  }
+  cb: (provider: DelphinusProvider) => Promise<T>
+): Promise<T> {
+  return await withProvider(cb);
 }
 
-// For read-only purposes without private key, we can use a provider to read the blockchain state
 export async function withReadOnlyConnector<T>(
-  cb: (prov: DelphinusReadOnlyConnector) => Promise<T>,
+  cb: (provider: DelphinusProvider) => Promise<T>,
   providerUrl: string
-) {
-  let provider = new DelphinusReadOnlyConnector(providerUrl);
-  try {
-    return await cb(provider);
-  } catch (e) {
-    throw e;
-  }
+): Promise<T> {
+  // Note: This function requires provider configuration to be set first
+// In actual use, should call setProviderConfig({ type: 'readonly', providerUrl }) first
+  return await withProvider(cb);
 }
 
-// For non browser mode, we need to provide a private key to sign transactions
-// Provider is required to read the blockchain state
-// Wrap ethers wallet implementation to provide a unified interface and necessary methods
 export async function withDelphinusWalletConnector<T>(
-  cb: (prov: DelphinusWalletConnector) => Promise<T>,
-  provider: DelphinusBaseProvider,
+  cb: (provider: DelphinusProvider) => Promise<T>,
+  providerUrl: string,
   privateKey: string
-) {
-  let wallet = new DelphinusWalletConnector(privateKey, provider);
-  try {
-    return await cb(wallet);
-  } catch (e) {
-    throw e;
-  }
+): Promise<T> {
+  // Note: This function requires provider configuration to be set first
+// In actual use, should call setProviderConfig({ type: 'wallet', providerUrl, privateKey }) first
+  return await withProvider(cb);
 }

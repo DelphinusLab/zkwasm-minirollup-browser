@@ -1,0 +1,648 @@
+.App {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #333;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  color: white;
+  margin-bottom: 40px;
+  font-size: 2.5rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+h2 {
+  color: #2c3e50;
+  border-bottom: 2px solid #3498db;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+}
+
+/* 通用卡片样式 */
+.wallet-section,
+.account-section,
+.deposit-section,
+.status-section,
+.config-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wallet-section:hover,
+.account-section:hover,
+.deposit-section:hover,
+.status-section:hover,
+.config-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* 钱包信息 */
+.wallet-info {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.wallet-info p {
+  margin: 8px 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* 账户信息 */
+.account-info {
+  padding: 16px;
+  background: #f0f8ff;
+  border-radius: 8px;
+  border: 1px solid #b8daff;
+}
+
+.success {
+  color: #28a745;
+  font-weight: bold;
+  margin-bottom: 12px;
+}
+
+.warning {
+  color: #ffc107;
+  font-weight: bold;
+  padding: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.account-actions ul {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+.account-actions li {
+  margin: 6px 0;
+  color: #666;
+}
+
+/* 按钮样式 */
+.login-button,
+.deposit-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 8px 0;
+}
+
+.login-button:hover,
+.deposit-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.login-button:disabled,
+.deposit-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* L2 输入组 */
+.l2-input-group {
+  display: flex;
+  gap: 12px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.address-input {
+  flex: 1;
+  min-width: 300px;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  transition: border-color 0.3s ease;
+}
+
+.address-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* 充值表单 */
+.deposit-form {
+  max-width: 500px;
+}
+
+.input-group {
+  margin: 16px 0;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.amount-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.3s ease;
+}
+
+.amount-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.deposit-info {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.deposit-info p {
+  margin: 8px 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.deposit-info small {
+  color: #6c757d;
+  font-style: italic;
+}
+
+/* 状态网格 */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid;
+  transition: all 0.3s ease;
+}
+
+.status-item.connected {
+  background: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.status-item.disconnected {
+  background: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.status-label {
+  font-weight: 600;
+}
+
+.status-value {
+  font-weight: bold;
+}
+
+/* 错误消息 */
+.error-message {
+  color: #ff6b6b;
+  font-size: 0.9em;
+  margin-top: 0.5rem;
+}
+
+.error-message small {
+  color: #ff6b6b;
+}
+
+/* 配置信息 */
+.config-info p {
+  margin: 8px 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  color: #495057;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .container {
+    padding: 12px;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+  
+  .l2-input-group {
+    flex-direction: column;
+  }
+  
+  .address-input {
+    min-width: unset;
+  }
+  
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* 新增的钱包连接样式 */
+.connect-wallets {
+  margin: 20px 0;
+}
+
+.wallet-button {
+  display: block;
+  width: 200px;
+  margin: 10px auto;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.wallet-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.wallet-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.disconnect-button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.disconnect-button:hover {
+  background: #c82333;
+}
+
+.wallet-info {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: left;
+}
+
+.wallet-info p {
+  margin: 8px 0;
+  color: #495057;
+}
+
+.wallet-info strong {
+  color: #212529;
+}
+
+.wallet-section, .account-section {
+  margin: 30px 0;
+  padding: 20px;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  background: white;
+}
+
+/* Provider Pattern Info */
+.provider-info {
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0f8ff 100%);
+  border: 2px solid #28a745;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.provider-info h2 {
+  color: #28a745;
+  border-bottom: 2px solid #28a745;
+  margin-bottom: 16px;
+}
+
+.provider-info ul {
+  list-style: none;
+  padding: 0;
+}
+
+.provider-info li {
+  margin: 8px 0;
+  font-weight: 500;
+}
+
+/* Wallet Actions */
+.wallet-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.disconnect-btn,
+.test-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.disconnect-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.disconnect-btn:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.test-btn {
+  background: #17a2b8;
+  color: white;
+}
+
+.test-btn:hover {
+  background: #138496;
+  transform: translateY(-1px);
+}
+
+/* Error Section */
+.error-section {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 24px;
+  margin: 20px 0;
+}
+
+.error-section h2 {
+  color: #721c24;
+  border-bottom: 2px solid #721c24;
+  margin-bottom: 16px;
+}
+
+.error-section ul {
+  list-style-type: disc;
+  padding-left: 20px;
+}
+
+.error-section li {
+  margin: 8px 0;
+  color: #721c24;
+}
+
+/* Config Help */
+.config-help {
+  margin-top: 20px;
+  padding: 16px;
+  background: #e2e3e5;
+  border-radius: 8px;
+}
+
+.config-help h3 {
+  color: #495057;
+  margin-bottom: 12px;
+}
+
+.config-help pre {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 12px;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.config-help code {
+  background: #f8f9fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+/* Provider Status */
+.provider-status {
+  margin-top: 20px;
+  padding: 16px;
+  background: #d1ecf1;
+  border: 1px solid #bee5eb;
+  border-radius: 8px;
+}
+
+.provider-status h3 {
+  color: #0c5460;
+  margin-bottom: 12px;
+}
+
+.provider-status p {
+  margin: 6px 0;
+  color: #0c5460;
+  font-weight: 500;
+}
+
+/* RainbowKit 演示样式 */
+.rainbowkit-demo {
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px rgba(255, 154, 158, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.rainbowkit-demo h2 {
+  color: #2d3748;
+  border-bottom: 3px solid #ff6b9d;
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+  font-size: 1.8rem;
+}
+
+.rainbowkit-demo > p {
+  color: #4a5568;
+  font-size: 16px;
+  margin-bottom: 24px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.demo-section {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(255, 107, 157, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.demo-section h3 {
+  color: #2d3748;
+  margin-bottom: 16px;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.demo-section h3:before {
+  content: "🎯";
+  font-size: 1.2rem;
+}
+
+.rainbow-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin: 8px 0;
+}
+
+.rainbow-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.rainbow-btn:disabled {
+  background: #cbd5e0;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.account-status {
+  background: #f7fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+
+.account-status p {
+  margin: 8px 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+}
+
+.demo-section small {
+  color: #718096;
+  font-style: italic;
+  display: block;
+  margin-top: 8px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .rainbowkit-demo {
+    padding: 20px;
+  }
+  
+  .demo-section {
+    padding: 16px;
+  }
+  
+  .demo-section h3 {
+    font-size: 1.1rem;
+  }
+} 

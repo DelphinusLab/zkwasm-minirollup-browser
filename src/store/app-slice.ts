@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getConfig, sendTransaction, queryState, queryInitialState, sendExtrinsicTransaction } from "./connect.js";
+import { getConfig, sendTransaction, queryState, queryInitialState, sendExtrinsicTransaction } from "./rpc-thunks";
 
 export enum ConnectState{
 	Init,
