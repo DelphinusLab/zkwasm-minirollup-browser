@@ -53,11 +53,8 @@ export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
   async (rainbowKitHooks: RainbowKitHooks, thunkApi) => {
     // If wallet is not connected, try to connect first
     if (!rainbowKitHooks.isConnected || !rainbowKitHooks.address) {
-      console.log('Wallet not connected, attempting to connect...');
-      
       // Prefer using openConnectModal
       if (rainbowKitHooks.openConnectModal) {
-        console.log('Opening RainbowKit connect modal...');
         rainbowKitHooks.openConnectModal();
         throw new Error('Please connect your wallet using the modal');
       }
@@ -65,7 +62,6 @@ export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
       // Fallback: try to auto-connect first connector
       if (rainbowKitHooks.connect && rainbowKitHooks.connectors && rainbowKitHooks.connectors.length > 0) {
         try {
-          console.log('Attempting auto-connect with first connector...');
           rainbowKitHooks.connect({ connector: rainbowKitHooks.connectors[0] });
           // Connection is async but function returns immediately, so we wait for connection state update
           throw new Error('Wallet connection initiated. Please wait for connection to complete and try again.');
@@ -77,9 +73,6 @@ export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
         throw new Error('No wallet connection method available. Please ensure RainbowKit is properly configured.');
       }
     }
-    
-    // Wallet connected, proceed with L1 login
-    console.log('Wallet connected, proceeding with L1 login...');
     const account = await loginL1Account();
     return account;
   }

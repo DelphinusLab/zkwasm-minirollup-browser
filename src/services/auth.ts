@@ -22,6 +22,5 @@ export async function loginL1Account(): Promise<L1AccountInfo> {
 
 export async function loginL2Account(address: string): Promise<L2AccountInfo> {
   const str: string = await signMessage(address);
-  console.log("signed result", str);
   return new L2AccountInfo(str.substring(0, 34));
 } 

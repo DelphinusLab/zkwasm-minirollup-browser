@@ -17,15 +17,15 @@ export async function initializeRainbowProviderIfNeeded(
   }
 
   try {
-    const { getProvider } = await import('../providers/provider');
+    const { getProvider, DelphinusRainbowConnector } = await import('../providers/provider');
     const currentProvider = await getProvider();
     
     if (currentProvider instanceof DelphinusRainbowConnector) {
       try {
+        // 检查是否已经初始化
         await currentProvider.connect();
       } catch (error) {
         // 如果连接失败，重新初始化
-        console.log('Re-initializing RainbowKit provider');
         await currentProvider.initialize(address as `0x${string}`, chainId);
       }
     }

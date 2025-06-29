@@ -134,11 +134,20 @@ function App() {
   // L2 account login
   const handleL2Login = async () => {
     try {
-      console.log('Logging in L2 account...');
+      console.log('L2 login button clicked - starting L2 account generation...');
+      console.log('Current wallet state:', { 
+        isConnected, 
+        address, 
+        chainId,
+        hasL1Account: !!l1Account,
+        status 
+      });
+      
       await loginL2(dispatch, "0xAUTOMATA");
       console.log('L2 login successful');
     } catch (error) {
       console.error('L2 login failed:', error);
+      alert(`L2 login failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 

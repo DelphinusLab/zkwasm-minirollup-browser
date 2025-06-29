@@ -9,7 +9,7 @@ import {
 } from '../utils';
 import { L2AccountInfo } from '../models/L2AccountInfo';
 import { loginL1AccountAsync, loginL2AccountAsync, depositAsync } from '../store/thunks';
-import { resetAccountState } from '../store/account-slice';
+import { resetAccountState, setL1Account } from '../store/account-slice';
 import { clearProviderInstance } from '../providers/provider';
 import type { L1AccountInfo, AppDispatch, SerializableTransactionReceipt } from '../types';
 
@@ -35,6 +35,9 @@ export function useWalletActions(
 
   const connectAndLoginL1 = useCallback(async (dispatch: AppDispatch) => {
     try {
+      // 设置为加载状态
+      dispatch(loginL1AccountAsync.pending('', undefined));
+      
       // 初始化 Provider
       await initializeRainbowProviderIfNeeded(address, chainId);
       
@@ -52,8 +55,8 @@ export function useWalletActions(
         };
       });
       
-      // 更新 Redux 状态
-      dispatch(loginL1AccountAsync.fulfilled(result, '', undefined));
+      // 使用 setL1Account action 而不是 fulfilled，避免状态设置为 LoadingL2
+      dispatch(setL1Account(result));
       return result;
     } catch (error) {
       console.error('L1 login failed:', error);
@@ -68,16 +71,19 @@ export function useWalletActions(
     }
 
     try {
+      // 设置为加载状态
+      dispatch(loginL2AccountAsync.pending('', appName));
+      
       // 初始化 Provider
       await initializeRainbowProviderIfNeeded(address, chainId);
       
       const result = await withProvider(async (provider) => {
         // 使用 provider 签名 - 注意：应该签名 appName，不是地址
         const signature = await provider.sign(appName);
-        console.log("signed result (new provider pattern)", signature);
         
         // 创建 L2 账户 - 使用签名的前34个字符（包括0x前缀）
         const l2Account = new L2AccountInfo(signature.substring(0, 34));
+        
         return l2Account;
       });
       
@@ -124,10 +130,7 @@ export function useWalletActions(
       // 只清除 provider 实例但保留配置以供重新连接
       clearProviderInstance();
       
-      // 如果是浏览器环境，提示用户
-      if (typeof window !== 'undefined' && window.ethereum) {
-        console.log('Provider disconnected. To fully disconnect, please disconnect from MetaMask manually.');
-      }
+      // Provider disconnected successfully
     } catch (error) {
       console.error('Disconnect error:', error);
     }

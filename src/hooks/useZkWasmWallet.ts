@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useConnection } from './useConnection';
 import { useWalletActions, type DepositParams } from './useWalletActions';
 import type { AppDispatch } from '../types';
@@ -17,19 +18,39 @@ export function useZkWasmWallet() {
   // 使用钱包操作 hook
   const walletActions = useWalletActions(address, chainId);
 
+  // 使用 useCallback 稳定函数引用，避免无限循环
+  const connectAndLoginL1 = useCallback(
+    (dispatch: AppDispatch) => walletActions.connectAndLoginL1(dispatch),
+    [walletActions.connectAndLoginL1]
+  );
+
+  const loginL2 = useCallback(
+    (dispatch: AppDispatch, appName?: string) => walletActions.loginL2(dispatch, appName),
+    [walletActions.loginL2]
+  );
+
+  const deposit = useCallback(
+    (dispatch: AppDispatch, params: DepositParams) => walletActions.deposit(dispatch, params),
+    [walletActions.deposit]
+  );
+
+  const reset = useCallback(
+    (dispatch: AppDispatch) => walletActions.reset(dispatch),
+    [walletActions.reset]
+  );
+
   return {
     // 连接状态
     isConnected,
     address,
     chainId,
     
-    // 钱包操作 (注意：现在需要显式传递 dispatch)
-    connectAndLoginL1: (dispatch: AppDispatch) => walletActions.connectAndLoginL1(dispatch),
-    loginL2: (dispatch: AppDispatch, appName?: string) => walletActions.loginL2(dispatch, appName),
-    deposit: (dispatch: AppDispatch, params: DepositParams) => 
-      walletActions.deposit(dispatch, params),
+    // 钱包操作 (使用 useCallback 稳定函数引用)
+    connectAndLoginL1,
+    loginL2,
+    deposit,
     disconnect: walletActions.disconnect,
-    reset: (dispatch: AppDispatch) => walletActions.reset(dispatch),
+    reset,
   };
 }
 

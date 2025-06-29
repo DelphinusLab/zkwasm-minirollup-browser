@@ -19,7 +19,7 @@ import { connectorsForWallets } from '@rainbow-me/rainbowkit';
 import { metaMaskWallet, walletConnectWallet, coinbaseWallet } from '@rainbow-me/rainbowkit/wallets';
 import { createConfig, http } from 'wagmi';
 import { connect, disconnect, getAccount, getChainId, switchChain } from 'wagmi/actions';
-import { mainnet, sepolia } from 'wagmi/chains';
+import { mainnet, sepolia, bsc, bscTestnet } from 'wagmi/chains';
 
 
 
@@ -301,33 +301,57 @@ export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProv
   }
 }
 
-// Wagmi configuration
+// Wagmi configuration - 防止重复初始化
 let wagmiConfig: ReturnType<typeof createConfig> | null = null;
+let isInitializing = false;
 
 function getWagmiConfig() {
-  if (!wagmiConfig) {
-    const connectors = connectorsForWallets(
-      [
-        {
-          groupName: 'Recommended',
-          wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet],
-        },
-      ],
-      {
-        appName: 'Delphinus zkWasm MiniRollup',
-        projectId: getWalletConnectId() || 'YOUR_PROJECT_ID',
-      }
-    );
-
-    wagmiConfig = createConfig({
-      connectors,
-      chains: [mainnet, sepolia],
-      transports: {
-        [mainnet.id]: http(),
-        [sepolia.id]: http(),
-      },
-    });
+  // 如果正在初始化，等待完成
+  if (isInitializing) {
+    console.warn('WagmiConfig is already initializing, please wait...');
+    // 如果正在初始化但还没完成，抛出错误而不是返回 null
+    if (!wagmiConfig) {
+      throw new Error('WagmiConfig is still initializing, please wait...');
+    }
+    return wagmiConfig;
   }
+  
+  if (!wagmiConfig) {
+    isInitializing = true;
+    try {
+      const connectors = connectorsForWallets(
+        [
+          {
+            groupName: 'Recommended',
+            wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet],
+          },
+        ],
+        {
+          appName: 'Delphinus zkWasm MiniRollup',
+          projectId: getWalletConnectId() || 'YOUR_PROJECT_ID',
+        }
+      );
+
+      wagmiConfig = createConfig({
+        connectors,
+        chains: [mainnet, sepolia, bsc, bscTestnet],
+        transports: {
+          [mainnet.id]: http(),
+          [sepolia.id]: http(),
+          [bsc.id]: http(),
+          [bscTestnet.id]: http(),
+        },
+      });
+    } finally {
+      isInitializing = false;
+    }
+  }
+  
+  // 确保返回的不是 null
+  if (!wagmiConfig) {
+    throw new Error('Failed to initialize WagmiConfig');
+  }
+  
   return wagmiConfig;
 }
 
@@ -611,7 +635,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
          return accounts[0];
       }
     } catch (error) {
-      console.log('No existing connection found');
+      // No existing connection found
     }
 
     // Show connection modal
@@ -628,7 +652,6 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
 
   async onAccountChange<T>(cb: (account: string) => T) {
     // This functionality will be handled by wagmi's useAccount hook
-    console.log("Account change handling moved to wagmi useAccount hook");
   }
 
   async getNetworkId(): Promise<bigint> {
@@ -643,13 +666,11 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       console.error('Failed to get network ID:', error);
       
       if (error.code === 'NETWORK_ERROR' && error.message.includes('network changed')) {
-        console.log('Network changed detected, retrying...');
         try {
           await new Promise(resolve => setTimeout(resolve, 1000));
           const network = await this.provider.getNetwork();
           return network.chainId;
         } catch (retryError) {
-          console.error('Retry failed:', retryError);
           throw retryError;
         }
       }
@@ -700,7 +721,13 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     if (!this.signer) {
       throw new Error("Signer not initialized");
     }
-    return await this.signer.signMessage(message);
+    
+    try {
+      return await this.signer.signMessage(message);
+    } catch (error) {
+      console.error('Signature failed:', error);
+      throw error;
+    }
   }
 }
 
