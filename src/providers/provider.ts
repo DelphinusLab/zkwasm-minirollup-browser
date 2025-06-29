@@ -301,73 +301,72 @@ export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProv
   }
 }
 
-// Wagmi configuration - 防止重复初始化
-let wagmiConfig: ReturnType<typeof createConfig> | null = null;
-let isInitializing = false;
+// 全局配置管理器 - 避免重复初始化
+class WagmiConfigManager {
+  private static instance: WagmiConfigManager;
+  private config: ReturnType<typeof createConfig> | null = null;
+  private isInitializing = false;
 
-function getWagmiConfig() {
-  // 如果正在初始化，等待完成
-  if (isInitializing) {
-    console.warn('WagmiConfig is already initializing, please wait...');
-    // 如果正在初始化但还没完成，抛出错误而不是返回 null
-    if (!wagmiConfig) {
-      throw new Error('WagmiConfig is still initializing, please wait...');
+  private constructor() {}
+
+  static getInstance(): WagmiConfigManager {
+    if (!WagmiConfigManager.instance) {
+      WagmiConfigManager.instance = new WagmiConfigManager();
     }
-    return wagmiConfig;
+    return WagmiConfigManager.instance;
   }
-  
-  if (!wagmiConfig) {
-    isInitializing = true;
-    try {
-      const connectors = connectorsForWallets(
-        [
-          {
-            groupName: 'Recommended',
-            wallets: [metaMaskWallet, walletConnectWallet, coinbaseWallet],
-          },
-        ],
-        {
-          appName: 'Delphinus zkWasm MiniRollup',
-          projectId: getWalletConnectId() || 'YOUR_PROJECT_ID',
-        }
-      );
 
-      wagmiConfig = createConfig({
-        connectors,
-        chains: [mainnet, sepolia, bsc, bscTestnet],
-        transports: {
-          [mainnet.id]: http(),
-          [sepolia.id]: http(),
-          [bsc.id]: http(),
-          [bscTestnet.id]: http(),
-        },
-      });
-    } finally {
-      isInitializing = false;
+  // 获取全局共享的 wagmi 配置
+  getSharedConfig(): ReturnType<typeof createConfig> | null {
+    return this.config;
+  }
+
+  // 设置全局共享的 wagmi 配置
+  setSharedConfig(config: ReturnType<typeof createConfig>) {
+    if (!this.config) {
+      this.config = config;
     }
   }
-  
-  // 确保返回的不是 null
-  if (!wagmiConfig) {
-    throw new Error('Failed to initialize WagmiConfig');
+
+  // 检查是否已有配置
+  hasConfig(): boolean {
+    return this.config !== null;
   }
-  
-  return wagmiConfig;
+
+  // 清除配置（用于重置）
+  clearConfig() {
+    this.config = null;
+    this.isInitializing = false;
+  }
 }
+
+// 获取共享的 wagmi 配置，如果没有则返回 null
+function getSharedWagmiConfig(): ReturnType<typeof createConfig> | null {
+  return WagmiConfigManager.getInstance().getSharedConfig();
+}
+
+// 设置共享的 wagmi 配置
+function setSharedWagmiConfig(config: ReturnType<typeof createConfig>) {
+  WagmiConfigManager.getInstance().setSharedConfig(config);
+}
+
+// 导出配置管理器相关函数
+export { getSharedWagmiConfig, setSharedWagmiConfig, WagmiConfigManager };
 
 // RainbowKit Provider implementation
 export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProvider> {
   private signer: JsonRpcSigner | null = null;
   private account: string | null = null;
   private chainId: number | null = null;
-  private config: ReturnType<typeof createConfig>;
+  private config: ReturnType<typeof createConfig> | null = null;
 
   constructor() {
     if (!window.ethereum) {
       throw new Error("No ethereum provider found");
     }
     super(new BrowserProvider(window.ethereum, "any"));
-    this.config = getWagmiConfig();
+    // 不在constructor中创建配置，而是延迟到需要时获取
+    this.config = getSharedWagmiConfig();
   }
 
   // Initialization method, needs to get data from RainbowKit hooks
@@ -384,8 +383,19 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     // Create genuine RainbowKit style connection modal
   private async connectWithRainbowKit(): Promise<string> {
     try {
+      // 获取共享的配置，如果没有则抛出错误
+      if (!this.config) {
+        this.config = getSharedWagmiConfig();
+        if (!this.config) {
+          throw new Error("No wagmi config available. Please ensure DelphinusProvider is used to wrap your app.");
+        }
+      }
+      
+      // Store config in local variable for TypeScript
+      const config = this.config;
+      
       // Get available connectors
-      const connectors = this.config.connectors;
+      const connectors = config.connectors;
       
       return new Promise((resolve, reject) => {
         // Create RainbowKit style modal
@@ -541,7 +551,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
             
             try {
               // Use wagmi to connect
-              const result = await connect(this.config, { connector });
+              const result = await connect(config, { connector });
               
               if (result.accounts && result.accounts.length > 0) {
                 this.account = result.accounts[0];

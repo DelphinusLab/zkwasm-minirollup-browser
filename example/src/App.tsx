@@ -123,13 +123,13 @@ function App() {
       status
     });
     
-    // Only attempt login when wallet is connected, has address, no L1 account, and status is Ready
-    // Also check that we're not in an error state or loading state
-    if (isConnected && address && !l1Account && status === 'Ready') {
+    // Only attempt login when wallet is connected, has address, and status is Initial
+    // This ensures we only try to login once when conditions are met
+    if (isConnected && address && status === 'Initial') {
       console.log('Wallet connected, attempting L1 login...', { address, chainId });
       handleL1Login();
     }
-  }, [isConnected, address, l1Account, status, handleL1Login]);
+  }, [isConnected, address, status, handleL1Login]);
 
   // L2 account login
   const handleL2Login = async () => {
@@ -180,8 +180,8 @@ function App() {
       await walletDeposit(dispatch, {
         tokenIndex: 0,
         amount: Number(depositAmount),
-        l2account: l2account!,
-        l1account: l1Account!
+        l2account: l2account,
+        l1account: l1Account
       });
       
       console.log('Deposit successful');

@@ -8,7 +8,7 @@ import {
 } from './thunks';
 
 const initialState: AccountState = {
-  status: 'Ready',
+  status: 'Initial',
 };
 
 export const accountSlice = createSlice({
@@ -22,7 +22,7 @@ export const accountSlice = createSlice({
     resetAccountState: (state) => {
       state.l1Account = undefined;
       state.l2account = undefined;
-      state.status = 'Ready';
+      state.status = 'Initial';
     }
   },
   extraReducers: (builder) => {
@@ -44,11 +44,17 @@ export const accountSlice = createSlice({
         state.status = 'Ready';
         state.l2account = c.payload;
       })
+      .addCase(loginL2AccountAsync.rejected, (state, c) => {
+        state.status = 'L2AccountError';
+      })
       .addCase(depositAsync.pending, (state) => {
         state.status = 'Deposit';
       })
       .addCase(depositAsync.fulfilled, (state, c) => {
         state.status = 'Ready';
+      })
+      .addCase(depositAsync.rejected, (state, c) => {
+        state.status = 'Ready';  // 存款失败后回到Ready状态，保持账户可用
       })
       // Complete connection and login flow
       .addCase(connectWalletAndLoginL1WithHooksAsync.pending, (state) => {

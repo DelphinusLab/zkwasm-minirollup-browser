@@ -7,6 +7,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { mainnet, sepolia, type Chain } from 'wagmi/chains';
 import { accountSliceReducer } from './reduxstate';
 import { getEnvConfig } from './config/env-adapter';
+import { setSharedWagmiConfig } from './providers/provider';
 
 // Cache configuration to avoid repeated initialization
 let cachedConfig: any = null;
@@ -63,6 +64,9 @@ export function createDelphinusRainbowKitConfig(options?: {
     chains: getChains(),
   });
 
+  // 将配置设置为全局共享配置，供其他组件使用
+  setSharedWagmiConfig(cachedConfig);
+
   return cachedConfig;
 }
 
@@ -70,6 +74,9 @@ export function createDelphinusRainbowKitConfig(options?: {
 export function resetDelphinusConfig() {
   cachedConfig = null;
   defaultStore = null;
+  // 同时清除共享配置
+  const { WagmiConfigManager } = require('./providers/provider');
+  WagmiConfigManager.getInstance().clearConfig();
 }
 
 // Create default query client
@@ -94,14 +101,54 @@ function getDefaultStore() {
       middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
           serializableCheck: {
+            // 忽略包含非序列化数据的 actions
             ignoredActions: [
               'persist/PERSIST', 
               'persist/REHYDRATE',
+              // L2 账户相关 actions
+              'account/deriveL2Account/pending',
               'account/deriveL2Account/fulfilled',
-              'account/deriveL2AccountRainbowKit/fulfilled',
+              'account/deriveL2Account/rejected',
+              // L1 账户相关 actions
+              'account/fetchAccount/pending',
+              'account/fetchAccount/fulfilled', 
+              'account/fetchAccount/rejected',
+              // 存款相关 actions
+              'account/deposit/pending',
+              'account/deposit/fulfilled',
+              'account/deposit/rejected',
+              // 连接相关 actions
+              'account/connectAndLoginL1/pending',
+              'account/connectAndLoginL1/fulfilled',
+              'account/connectAndLoginL1/rejected',
+              'account/connectAndLoginL1WithHooks/pending',
+              'account/connectAndLoginL1WithHooks/fulfilled',
+              'account/connectAndLoginL1WithHooks/rejected',
+              // Redux action creators
+              'account/setL1Account',
+              'account/resetAccountState',
             ],
-            ignoredActionsPaths: ['payload', 'meta.arg'],
-            ignoredPaths: ['account.l2account'],
+            // 忽略 action 中的特定路径
+            ignoredActionsPaths: [
+              'payload', 
+              'meta.arg', 
+              'payload.l2account',
+              'payload.l1Account',
+              'meta.arg.l2account',
+              'meta.arg.l1account'
+            ],
+            // 忽略 state 中的特定路径
+            ignoredPaths: [
+              'account.l2account',
+              'account.l1Account'
+            ],
+            // 忽略嵌套值检查
+            ignoredNestedPaths: [
+              'account.l2account.pubkey',
+              'account.l2account.#prikey'
+            ],
+            // 完全禁用序列化检查 (最宽松的选项)
+            warnAfter: 128,
           },
         }),
     });
@@ -160,14 +207,54 @@ export function createDelphinusStore(additionalReducers?: any) {
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
         serializableCheck: {
+          // 忽略包含非序列化数据的 actions
           ignoredActions: [
             'persist/PERSIST', 
             'persist/REHYDRATE',
+            // L2 账户相关 actions
+            'account/deriveL2Account/pending',
             'account/deriveL2Account/fulfilled',
-            'account/deriveL2AccountRainbowKit/fulfilled',
+            'account/deriveL2Account/rejected',
+            // L1 账户相关 actions
+            'account/fetchAccount/pending',
+            'account/fetchAccount/fulfilled', 
+            'account/fetchAccount/rejected',
+            // 存款相关 actions
+            'account/deposit/pending',
+            'account/deposit/fulfilled',
+            'account/deposit/rejected',
+            // 连接相关 actions
+            'account/connectAndLoginL1/pending',
+            'account/connectAndLoginL1/fulfilled',
+            'account/connectAndLoginL1/rejected',
+            'account/connectAndLoginL1WithHooks/pending',
+            'account/connectAndLoginL1WithHooks/fulfilled',
+            'account/connectAndLoginL1WithHooks/rejected',
+            // Redux action creators
+            'account/setL1Account',
+            'account/resetAccountState',
           ],
-          ignoredActionsPaths: ['payload', 'meta.arg'],
-          ignoredPaths: ['account.l2account'],
+          // 忽略 action 中的特定路径
+          ignoredActionsPaths: [
+            'payload', 
+            'meta.arg', 
+            'payload.l2account',
+            'payload.l1Account',
+            'meta.arg.l2account',
+            'meta.arg.l1account'
+          ],
+          // 忽略 state 中的特定路径
+          ignoredPaths: [
+            'account.l2account',
+            'account.l1Account'
+          ],
+          // 忽略嵌套值检查
+          ignoredNestedPaths: [
+            'account.l2account.pubkey',
+            'account.l2account.#prikey'
+          ],
+          // 完全禁用序列化检查 (最宽松的选项)
+          warnAfter: 128,
         },
       }),
   });

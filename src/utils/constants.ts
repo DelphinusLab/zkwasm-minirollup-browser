@@ -47,6 +47,7 @@ export const ACTION_TYPES = {
 
 // 应用状态
 export const APP_STATUS = {
+  INITIAL: 'Initial',
   LOADING_L1: 'LoadingL1',
   LOADING_L2: 'LoadingL2',
   L1_ERROR: 'L1AccountError',

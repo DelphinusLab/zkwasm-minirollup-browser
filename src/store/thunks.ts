@@ -5,7 +5,7 @@ import { L2AccountInfo } from '../models/L2AccountInfo';
 import { loginL1Account, loginL2Account, deposit } from '../services';
 
 export const loginL1AccountAsync = createAsyncThunk(
-  'acccount/fetchAccount',
+  'account/fetchAccount',
   async (thunkApi) => {
     const account = await loginL1Account();
     return account;
@@ -13,7 +13,7 @@ export const loginL1AccountAsync = createAsyncThunk(
 );
 
 export const loginL2AccountAsync = createAsyncThunk(
-  'acccount/deriveL2Account',
+  'account/deriveL2Account',
   async (appName: string, thunkApi) => {
     const l2account = await loginL2Account(appName);
     return l2account;  // Return L2AccountInfo instance directly
@@ -21,7 +21,7 @@ export const loginL2AccountAsync = createAsyncThunk(
 );
 
 export const depositAsync = createAsyncThunk(
-  'acccount/deposit',
+  'account/deposit',
   async (params: {
     tokenIndex: number, 
     amount: number, 

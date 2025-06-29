@@ -23,7 +23,7 @@ export interface SerializableTransactionReceipt {
 export interface AccountState {
   l1Account?: L1AccountInfo;
   l2account?: import('../models/L2AccountInfo').L2AccountInfo;
-  status: 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
+  status: 'Initial' | 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
 }
 
 export interface State {
