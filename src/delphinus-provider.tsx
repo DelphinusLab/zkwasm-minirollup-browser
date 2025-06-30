@@ -5,7 +5,7 @@ import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { Provider as ReduxProvider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { mainnet, sepolia, type Chain } from 'wagmi/chains';
-import { accountSliceReducer } from './reduxstate';
+import accountSliceReducer from './store/account-slice';
 import { getEnvConfig } from './config/env-adapter';
 import { setSharedWagmiConfig } from './providers/provider';
 

@@ -42,31 +42,71 @@ export {
   DelphinusProvider as DelphinusReactProvider,
 } from './delphinus-provider';
 
-// New zkWasm SDK exports - state management and React Hooks
+// ========================================
+// 🎯 MAIN WALLET HOOK (RECOMMENDED)
+// ========================================
+
+// Complete wallet context hook - provides all WalletContextType functionality
 export {
-  // Connection state hook
+  useWalletContext,
+  type WalletContextType,
+} from './hooks/useWalletContext';
+
+// ========================================
+// 🗄️ REDUX STATE MANAGEMENT (Advanced Usage)
+// ========================================
+
+// Redux store and utilities for advanced users
+export {
+  // Store configuration
+  createDelphinusStore,
+  
+  // Redux core exports
+  useSelector,
+  useDispatch,
+  ReduxProvider,
+  
+  // Typed Redux helpers
+  type RootState,
+  type AppDispatch,
+  
+  // Account state selectors
+  selectL1Account,
+  selectL2Account,
+  selectLoginStatus,
+  
+  // Account actions
+  setL1Account,
+  resetAccountState,
+} from './store';
+
+// ========================================
+// 🔧 ADVANCED HOOKS (For Custom Implementation)
+// ========================================
+
+// Split hooks for advanced users who need granular control
+export {
   useConnection,
-  
-  // Wallet actions hook
   useWalletActions,
-  
-  // Types
+} from './hooks';
+
+// Account state type
+export {
   type AccountState,
-} from './reduxstate';
+} from './types/account';
 
 // ========================================
 // 📚 Usage Guide
 // ========================================
 
 /*
-Usage:
+RECOMMENDED USAGE - Complete Wallet Context:
 
-Option 1: Unified Provider + Split Hooks (Recommended):
 ```typescript
 import { 
   DelphinusReactProvider, 
-  useConnection, 
-  useWalletActions 
+  useWalletContext,
+  type WalletContextType 
 } from 'zkwasm-minirollup-browser';
 
 // In main.tsx
@@ -74,50 +114,59 @@ import {
   <App />
 </DelphinusReactProvider>
 
-// In components that only need connection state
-const { isConnected, address, chainId } = useConnection();
-
-// In components that need wallet operations
-const { connectAndLoginL1, loginL2, deposit, reset } = useWalletActions(address, chainId);
+// In your component - ONE HOOK for everything!
+function WalletComponent() {
+  const {
+    isConnected,        // L1 connection status
+    isL2Connected,      // L2 connection status  
+    l1Account,          // L1 account info
+    l2Account,          // L2 account info (full L2AccountInfo instance)
+    playerId,           // [string, string] | null - PID array
+    address,            // wallet address
+    chainId,            // current chain ID
+    connectL1,          // connect L1 wallet
+    connectL2,          // connect L2 account
+    disconnect,         // disconnect wallet
+    setPlayerId,        // PID setter (derived from L2 account)
+  } = useWalletContext();
+  
+  // Access L2 account methods directly
+  const handleSerialize = () => {
+    if (l2Account) {
+      const serialized = l2Account.toSerializableData();
+      console.log('Serialized L2 account:', serialized);
+    }
+  };
+  
+  return (
+    <div>
+      <p>L1: {isConnected ? '✅' : '❌'} | L2: {isL2Connected ? '✅' : '❌'}</p>
+      <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
+      <p>Address: {address}</p>
+      <button onClick={connectL1}>Connect L1</button>
+      <button onClick={connectL2}>Connect L2</button>
+      <button onClick={handleSerialize}>Serialize L2 Account</button>
+    </div>
+  );
+}
 ```
 
-Option 2: Direct Provider pattern:
+ADVANCED USAGE - Custom Redux Integration:
 ```typescript
 import { 
-  useConnection,
-  useWalletActions,
-  setProviderConfig, 
-  withProvider 
+  useSelector, 
+  useDispatch,
+  type RootState,
+  createDelphinusStore
 } from 'zkwasm-minirollup-browser';
 
-// Configure provider (execute once at app startup)
-setProviderConfig({ type: 'rainbow' });
-
-// Use split hooks
-const { isConnected, address, chainId } = useConnection();
-const { connectAndLoginL1 } = useWalletActions(address, chainId);
-
-// Or use provider directly
-const result = await withProvider(async (provider) => {
-  return await provider.connect();
-});
+// Direct Redux state access for advanced users
+const { l1Account, l2account } = useSelector((state: RootState) => state.account);
 ```
 
-RainbowKit components:
-```typescript
-import { 
-  ConnectButton, 
-  useConnectModal 
-} from 'zkwasm-minirollup-browser';
-```
-
-Benefits of split hooks:
-- Better performance (only re-render when needed)
-- Cleaner code organization
-- Easier testing and debugging
-
-Environment variables:
-- All projects use REACT_APP_ prefix
-- Support for CRA, Next.js, Vite and custom builds
+Environment Configuration:
+- Uses dotenv to automatically load .env files
+- All variables use REACT_APP_ prefix
+- Create .env file with: REACT_APP_CHAIN_ID, REACT_APP_DEPOSIT_CONTRACT, etc.
 */
 
