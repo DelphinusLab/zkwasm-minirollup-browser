@@ -21,6 +21,13 @@ export {
   validateEnvConfig,
 } from "./config/env-adapter";
 
+// Provider utilities exports
+export {
+  syncBrowserWalletState,
+  hasEthereumProvider,
+  getConnectedAccounts,
+} from "./utils/provider";
+
 // ========================================
 // 🌈 RAINBOWKIT & WAGMI RE-EXPORTS
 // ========================================

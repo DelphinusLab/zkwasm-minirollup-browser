@@ -7,6 +7,7 @@ import {
   validateEnvConfig,
   setProviderConfig,
   withProvider,
+  syncBrowserWalletState,
   type AccountState,
   type DelphinusProvider,
   // Import RainbowKit components from SDK
@@ -88,8 +89,67 @@ function App() {
     }
   };
 
+  // Direct browser wallet connection (using window.ethereum)
+  const handleBrowserWalletConnect = async () => {
+    try {
+      // Check if MetaMask is installed
+      if (!window.ethereum) {
+        alert('MetaMask not detected! Please install MetaMask browser extension.');
+        return;
+      }
+
+      // Request account access
+      const accounts = await window.ethereum.request({ 
+        method: 'eth_requestAccounts' 
+      });
+      
+      if (accounts.length === 0) {
+        alert('No accounts found. Please unlock your wallet.');
+        return;
+      }
+
+      // Get current chain ID
+      const chainId = await window.ethereum.request({ 
+        method: 'eth_chainId' 
+      });
+
+      console.log('Browser wallet connected:', {
+        account: accounts[0],
+        chainId: parseInt(chainId, 16)
+      });
+
+      // 🔄 Sync browser wallet state with wagmi
+      console.log('Before sync - isConnected:', isConnected, 'address:', address);
+      
+      const syncResult = await syncBrowserWalletState();
+      
+      // Give a bit more time for wagmi to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log('After sync - isConnected:', isConnected, 'address:', address);
+      
+      if (syncResult.success) {
+        console.log('✅ Wallet state synced with SDK');
+        alert(`Wallet connected and synced!\nAddress: ${accounts[0]}\nChain ID: ${parseInt(chainId, 16)}\n\nSDK Status:\n- isConnected: ${isConnected}\n- SDK Address: ${address || 'updating...'}`);
+      } else {
+        console.warn('⚠️ Failed to sync wallet state with SDK');
+        alert(`Wallet connected but sync failed.\nAddress: ${accounts[0]}\nChain ID: ${parseInt(chainId, 16)}\n\nTry refreshing the page or using RainbowKit buttons.`);
+      }
+      
+    } catch (error) {
+      console.error('Browser wallet connection failed:', error);
+      alert(`Connection failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
   // L1 account connection - now simplified!
   const handleL1Connect = async () => {
+    // For browser provider, ensure wallet is connected first
+    if (!isConnected) {
+      alert('Please connect your wallet first using the Connect button above!');
+      return;
+    }
+    
     try {
       await connectL1();
     } catch (error) {
@@ -211,25 +271,49 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
 
         {/* RainbowKit Components Demo */}
         <div className="rainbowkit-demo">
-          <h2>🌈 RainbowKit Components (Exported from SDK)</h2>
-          <p>These components are directly exported from our SDK - no need to install RainbowKit separately!</p>
+          <h2>🌈 Wallet Connection Options</h2>
+          <p>Choose your preferred connection method:</p>
           
           <div className="demo-section">
-            <h3>ConnectButton Component</h3>
-            <ConnectButton />
-            <p><small>This is RainbowKit's official ConnectButton component</small></p>
+            <h3>🔧 Browser Provider (window.ethereum)</h3>
+            <button 
+              onClick={handleBrowserWalletConnect}
+              className="browser-connect-btn"
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#ff6b35',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }}
+            >
+              Connect MetaMask (Browser)
+            </button>
+            <p><small>Direct connection using window.ethereum API (recommended for browser provider)</small></p>
           </div>
 
           <div className="demo-section">
-            <h3>useConnectModal Hook</h3>
-            <button 
-              onClick={openConnectModal} 
-              disabled={!openConnectModal}
-              className="rainbow-btn"
-            >
-              Open Connect Modal
-            </button>
-            <p><small>Programmatically open RainbowKit's connect modal</small></p>
+            <h3>🌈 RainbowKit Components (Alternative)</h3>
+            <p>These components are directly exported from our SDK:</p>
+            
+            <div style={{ marginBottom: '10px' }}>
+              <ConnectButton />
+              <p><small>RainbowKit's official ConnectButton component</small></p>
+            </div>
+
+            <div>
+              <button 
+                onClick={openConnectModal} 
+                disabled={!openConnectModal}
+                className="rainbow-btn"
+              >
+                Open Connect Modal
+              </button>
+              <p><small>Programmatically open RainbowKit's connect modal</small></p>
+            </div>
           </div>
 
           <div className="demo-section">
@@ -282,19 +366,22 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
           
           {!isConnected ? (
             <div>
-              <p>Please connect your wallet to access L1 functionality</p>
+              <p className="warning">⚠️ Wallet not connected! Please connect your wallet first.</p>
+              <p>For <code>browser</code> provider: Use the "Connect MetaMask (Browser)" button above (recommended)</p>
+              <p>Or try the RainbowKit buttons as an alternative.</p>
               <button 
                 onClick={handleL1Connect} 
-                disabled={isLoading}
-                className="login-button"
+                disabled={true}
+                className="login-button disabled"
+                style={{ opacity: 0.5, cursor: 'not-allowed' }}
               >
-                {isLoading ? 'Connecting...' : 'Connect Wallet & L1 Account'}
+                Connect Wallet First
               </button>
-              <p><small>This will automatically open wallet connection if needed</small></p>
+              <p><small>This button will be enabled after wallet connection</small></p>
             </div>
           ) : !l1Account ? (
             <div>
-              <p>Wallet connected! Now login to L1 account.</p>
+              <p>✅ Wallet connected! Now login to L1 account.</p>
               <button 
                 onClick={handleL1Connect} 
                 disabled={isLoading}
