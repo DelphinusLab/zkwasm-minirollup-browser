@@ -4,7 +4,7 @@ import { L1AccountInfo, SerializableTransactionReceipt } from '../types';
 import { L2AccountInfo } from '../models/L2AccountInfo';
 
 export async function deposit(
-  chainId: number, 
+  _chainId: number, 
   tokenIndex: number, 
   amount: number, 
   l2account: L2AccountInfo, 

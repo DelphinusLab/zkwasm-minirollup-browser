@@ -34,7 +34,7 @@ export const accountSlice = createSlice({
         state.status = 'Ready';  // L1 登录完成后应该是 Ready 状态
         state.l1Account = c.payload;
       })
-      .addCase(loginL1AccountAsync.rejected, (state, c) => {
+      .addCase(loginL1AccountAsync.rejected, (state, _c) => {
         state.status = 'L1AccountError';
       })
       .addCase(loginL2AccountAsync.pending, (state) => {
@@ -44,16 +44,16 @@ export const accountSlice = createSlice({
         state.status = 'Ready';
         state.l2account = c.payload;
       })
-      .addCase(loginL2AccountAsync.rejected, (state, c) => {
+      .addCase(loginL2AccountAsync.rejected, (state, _c) => {
         state.status = 'L2AccountError';
       })
       .addCase(depositAsync.pending, (state) => {
         state.status = 'Deposit';
       })
-      .addCase(depositAsync.fulfilled, (state, c) => {
+      .addCase(depositAsync.fulfilled, (state, _c) => {
         state.status = 'Ready';
       })
-      .addCase(depositAsync.rejected, (state, c) => {
+      .addCase(depositAsync.rejected, (state, _c) => {
         state.status = 'Ready';  // 存款失败后回到Ready状态，保持账户可用
       })
       // Complete connection and login flow
@@ -64,7 +64,7 @@ export const accountSlice = createSlice({
         state.status = 'Ready';  // Should be Ready state after successful L1 login
         state.l1Account = c.payload;
       })
-      .addCase(connectWalletAndLoginL1WithHooksAsync.rejected, (state, c) => {
+      .addCase(connectWalletAndLoginL1WithHooksAsync.rejected, (state, _c) => {
         state.status = 'L1AccountError';
       })
   },

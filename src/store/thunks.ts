@@ -6,7 +6,7 @@ import { loginL1Account, loginL2Account, deposit } from '../services';
 
 export const loginL1AccountAsync = createAsyncThunk(
   'account/fetchAccount',
-  async (thunkApi) => {
+  async (_thunkApi) => {
     const account = await loginL1Account();
     return account;
   }
@@ -14,7 +14,7 @@ export const loginL1AccountAsync = createAsyncThunk(
 
 export const loginL2AccountAsync = createAsyncThunk(
   'account/deriveL2Account',
-  async (appName: string, thunkApi) => {
+  async (appName: string, _thunkApi) => {
     const l2account = await loginL2Account(appName);
     return l2account;  // Return L2AccountInfo instance directly
   }
@@ -27,7 +27,7 @@ export const depositAsync = createAsyncThunk(
     amount: number, 
     l2account: L2AccountInfo, 
     l1account: L1AccountInfo
-  }, thunkApi) => {
+  }, _thunkApi) => {
     const txReceipt = await deposit(getChainId(), params.tokenIndex, params.amount, params.l2account, params.l1account);
     
     if (!txReceipt) {
@@ -41,7 +41,7 @@ export const depositAsync = createAsyncThunk(
 // Complete wallet connection and L1 login flow
 export const connectWalletAndLoginL1Async = createAsyncThunk(
   'account/connectAndLoginL1',
-  async (_, thunkApi) => {
+  async (_, _thunkApi) => {
     // This function needs to be called from React component because it requires hooks
     throw new Error('This function should be called from a React component with RainbowKit hooks');
   }
@@ -50,7 +50,7 @@ export const connectWalletAndLoginL1Async = createAsyncThunk(
 // Connection function for external use, requires RainbowKit hooks
 export const connectWalletAndLoginL1WithHooksAsync = createAsyncThunk(
   'account/connectAndLoginL1WithHooks',
-  async (rainbowKitHooks: RainbowKitHooks, thunkApi) => {
+  async (rainbowKitHooks: RainbowKitHooks, _thunkApi) => {
     // If wallet is not connected, try to connect first
     if (!rainbowKitHooks.isConnected || !rainbowKitHooks.address) {
       // Prefer using openConnectModal

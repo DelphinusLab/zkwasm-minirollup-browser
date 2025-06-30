@@ -94,7 +94,7 @@ export async function withBrowserConnector<T>(
 
 export async function withReadOnlyConnector<T>(
   cb: (provider: DelphinusProvider) => Promise<T>,
-  providerUrl: string
+  _providerUrl: string
 ): Promise<T> {
   // Note: This function requires provider configuration to be set first
 // In actual use, should call setProviderConfig({ type: 'readonly', providerUrl }) first
@@ -103,8 +103,8 @@ export async function withReadOnlyConnector<T>(
 
 export async function withDelphinusWalletConnector<T>(
   cb: (provider: DelphinusProvider) => Promise<T>,
-  providerUrl: string,
-  privateKey: string
+  _providerUrl: string,
+  _privateKey: string
 ): Promise<T> {
   // Note: This function requires provider configuration to be set first
 // In actual use, should call setProviderConfig({ type: 'wallet', providerUrl, privateKey }) first

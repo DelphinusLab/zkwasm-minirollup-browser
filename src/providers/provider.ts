@@ -364,6 +364,11 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     this.config = getSharedWagmiConfig();
   }
 
+  // Get current chain ID
+  getCurrentChainId(): number | null {
+    return this.chainId;
+  }
+
   // 从wagmi connector获取正确的provider
   private async getCorrectProvider(): Promise<BrowserProvider> {
     if (!this.config) {
@@ -727,7 +732,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     this.chainId = null;
   }
 
-  async onAccountChange<T>(cb: (account: string) => T) {
+  async onAccountChange<T>(_cb: (account: string) => T) {
     // This functionality will be handled by wagmi's useAccount hook
   }
 
@@ -813,7 +818,7 @@ export class DelphinusReadOnlyConnector extends DelphinusBaseProvider<DelphinusB
     // Read-only provider doesn't need special cleanup
   }
 
-  async onAccountChange<T>(cb: (account: string) => T) {
+  async onAccountChange<T>(_cb: (account: string) => T) {
     throw new Error("Read-only provider does not support account changes");
   }
 
@@ -827,17 +832,17 @@ export class DelphinusReadOnlyConnector extends DelphinusBaseProvider<DelphinusB
   }
 
   async getContractWithSigner(
-    contractAddress: string,
-    abi: InterfaceAbi
+    _contractAddress: string,
+    _abi: InterfaceAbi
   ): Promise<DelphinusContract> {
     throw new Error("Read-only provider does not support signing contracts");
   }
 
-  async switchNet(chainHexId: string) {
+  async switchNet(_chainHexId: string) {
     throw new Error("Read-only provider cannot switch networks");
   }
 
-  async sign(message: string): Promise<string> {
+  async sign(_message: string): Promise<string> {
     throw new Error("Read-only provider does not support signing");
   }
 }
@@ -856,7 +861,7 @@ export class DelphinusWalletConnector extends DelphinusBaseSigner<Wallet> {
     // Wallet provider doesn't need special cleanup
   }
 
-  async onAccountChange<T>(cb: (account: string) => T) {
+  async onAccountChange<T>(_cb: (account: string) => T) {
     throw new Error("Wallet provider does not support account changes");
   }
 
@@ -872,7 +877,7 @@ export class DelphinusWalletConnector extends DelphinusBaseSigner<Wallet> {
     return this.signer as unknown as JsonRpcSigner;
   }
 
-  async switchNet(chainHexId: string) {
+  async switchNet(_chainHexId: string) {
     throw new Error("Wallet provider cannot switch networks");
   }
 

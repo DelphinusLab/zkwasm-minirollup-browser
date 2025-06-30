@@ -47,7 +47,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 
 		extraReducers: (builder) => {
 			builder
-				.addCase(getConfig.pending, (state, action) => {
+				.addCase(getConfig.pending, (state, _action) => {
 					state.connectState = ConnectState.QueryConfig;
 				})
 				.addCase(getConfig.fulfilled, (state, action) => {
@@ -60,7 +60,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 						payload: action.payload,
 					}
 				})
-				.addCase(sendTransaction.pending, (state, action) => {
+				.addCase(sendTransaction.pending, (state, _action) => {
 					state.connectState = ConnectState.WaitingTxReply;
 				})
 				.addCase(sendTransaction.fulfilled, (state, action) => {
@@ -82,10 +82,10 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 						payload: action.payload,
 					}
 				})
-				.addCase(sendExtrinsicTransaction.pending, (state, action) => {
+				.addCase(sendExtrinsicTransaction.pending, (state, _action) => {
 					state.connectState = ConnectState.WaitingTxReply;
 				})
-				.addCase(sendExtrinsicTransaction.fulfilled, (state, action) => {
+				.addCase(sendExtrinsicTransaction.fulfilled, (_state, _action) => {
 					console.log("extrinsic message sent");
 				})
 				.addCase(sendExtrinsicTransaction.rejected, (state, action) => {
@@ -94,7 +94,7 @@ export function createStateSlice<PlayerInfo, GlobalState, Config>(initialState: 
 						payload: action.payload,
 					}
 				})
-				.addCase(queryState.pending, (state, action) => {
+				.addCase(queryState.pending, (state, _action) => {
 					state.connectState = ConnectState.QueryState;
 				})
 				.addCase(queryState.fulfilled, (state, action) => {

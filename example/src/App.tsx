@@ -1,9 +1,8 @@
 import '@rainbow-me/rainbowkit/styles.css';
-import React, { useCallback, useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
+import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import {
-  useConnection,
-  useWalletActions,
+  useWalletContext,
   getEnvConfig,
   validateEnvConfig,
   setProviderConfig,
@@ -16,41 +15,46 @@ import {
 } from '../../src/index';
 import './App.css';
 
-// Define Redux store's root state type
+// Define Redux store's root state type for advanced Redux access
 interface RootState {
   account: AccountState;
 }
 
 function App() {
-  const dispatch = useDispatch();
+  // const dispatch = useDispatch<any>(); // No longer needed with unified wallet context
   
-  // Get environment configuration (cached with useMemo)
+  // Get environment configuration
   const envConfig = React.useMemo(() => getEnvConfig(), []);
   const [configErrors, setConfigErrors] = useState<string[]>([]);
   
   // RainbowKit hooks (exported from SDK)
   const { openConnectModal } = useConnectModal();
   
-  // Use new split hooks approach for better performance
-  const { isConnected, address, chainId } = useConnection();
-  const { connectAndLoginL1, loginL2, deposit: walletDeposit, reset } = useWalletActions(address, chainId);
+  // ✨ NEW: Use unified wallet context - everything in one hook!
+  const {
+    // Connection states
+    isConnected,        // L1 connection status
+    isL2Connected,      // L2 connection status  
+    l1Account,          // L1 account info
+    l2Account,          // L2 account info (full L2AccountInfo instance)
+    playerId,           // [string, string] | null - PID array
+    address,            // wallet address
+    chainId,            // current chain ID
+    
+    // Actions
+    connectL1,          // connect L1 wallet
+    connectL2,          // connect L2 account
+    disconnect,         // disconnect wallet
+    deposit,            // deposit method
+  } = useWalletContext();
   
   const [depositAmount, setDepositAmount] = useState('0.01');
   
-  // Redux state
-  const accountState = useSelector((state: RootState) => state.account);
-  const { 
-    l1Account, 
-    l2account,
-    status 
-  } = accountState;
-
-  // Calculate states
-  const isL1Connected = !!l1Account;
-  const isL2Connected = !!l2account;
-  const isL1Connecting = status === 'LoadingL1';
-  const isL2Connecting = status === 'LoadingL2';
-  const isDepositing = status === 'Deposit';
+  // Advanced Redux state access (optional, for status monitoring)
+  const { status } = useSelector((state: RootState) => state.account);
+  
+  // Derived states (now much simpler)
+  const isLoading = status.includes('Loading');
   const lastError = status.includes('Error') ? status : null;
 
   // Validate environment configuration
@@ -75,102 +79,44 @@ function App() {
           isConnected: true
         };
       });
+      alert(`Provider test successful! Network ID: ${result.networkId}`);
       return result;
     } catch (error) {
       console.error('Provider test failed:', error);
+      alert(`Provider test failed: ${error instanceof Error ? error.message : String(error)}`);
       return { isConnected: false, error: error instanceof Error ? error.message : String(error) };
     }
   };
 
-  // L1 account login
-  const handleL1Login = useCallback(async () => {
+  // L1 account connection - now simplified!
+  const handleL1Connect = async () => {
     try {
-      await connectAndLoginL1(dispatch);
+      await connectL1();
     } catch (error) {
-      console.error('Connect and L1 login failed:', error);
-    }
-  }, [connectAndLoginL1, dispatch]);
-
-  // Monitor wallet connection status changes, reset state when disconnected or account changed
-  useEffect(() => {
-    console.log('Connection state changed:', { 
-      isConnected, 
-      address, 
-      chainId,
-      l1AccountAddress: l1Account?.address 
-    });
-    
-    if (!isConnected) {
-      console.log('Wallet disconnected, resetting account state');
-      reset(dispatch);
-    } else if (isConnected && address) {
-      // 检查是否是账户切换（地址改变）
-      if (l1Account && l1Account.address && l1Account.address !== address) {
-        console.log('🔄 Account switched detected, resetting state', { 
-          oldAddress: l1Account.address, 
-          newAddress: address 
-        });
-        reset(dispatch);
-      } else if (!l1Account && address) {
-        console.log('✅ New wallet connected, ready for L1 login', { address });
-      }
-    }
-  }, [isConnected, address, chainId, dispatch, reset, l1Account]);
-
-    // Auto L1 login when wallet is connected - improved conditions and timing
-  useEffect(() => {
-    const debugInfo = { 
-      isConnected, 
-      hasAddress: !!address,
-      hasChainId: !!chainId,
-      hasL1Account: !!l1Account, 
-      status,
-      isL1Connecting
-    };
-    
-    // Only attempt login when all conditions are met and not already connecting
-    if (isConnected && address && chainId && status === 'Initial' && !l1Account && !isL1Connecting) {
-      console.log('✅ Auto L1 login: All conditions met, starting L1 login...', debugInfo);
-      // Add small delay to ensure wallet state is fully settled
-      const timeoutId = setTimeout(() => {
-        handleL1Login();
-      }, 500);
-      
-      // Cleanup timeout on unmount or dependency change
-      return () => clearTimeout(timeoutId);
-    } else {
-      // 提供更详细的原因说明
-      const reasons = [];
-      if (!isConnected) reasons.push('wallet not connected');
-      if (!address) reasons.push('no address');
-      if (!chainId) reasons.push('no chainId');
-      if (status !== 'Initial') reasons.push(`status is '${status}', not 'Initial'`);
-      if (l1Account) reasons.push('L1 account already exists');
-      if (isL1Connecting) reasons.push('L1 connection in progress');
-      
-      console.log(`⏸️ Auto L1 login: Conditions not met - ${reasons.join(', ')}`, debugInfo);
-    }
-  }, [isConnected, address, chainId, status, l1Account, isL1Connecting, handleL1Login]);
-
-  // L2 account login
-  const handleL2Login = async () => {
-    try {
-      await loginL2(dispatch, "0xAUTOMATA");
-    } catch (error) {
-      console.error('L2 login failed:', error);
-      alert(`L2 login failed: ${error instanceof Error ? error.message : String(error)}`);
+      console.error('L1 connect failed:', error);
+      alert(`L1 connection failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
-  // Deposit to L2
+  // L2 account connection - now simplified!
+  const handleL2Connect = async () => {
+    try {
+      await connectL2();
+    } catch (error) {
+      console.error('L2 connect failed:', error);
+      alert(`L2 connection failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  // Deposit to L2 (using unified wallet context)
   const handleDeposit = async () => {
-    if (!isL1Connected) {
-      alert('Please login to L1 account first');
+    if (!isConnected) {
+      alert('Please connect your wallet first');
       return;
     }
 
     if (!isL2Connected) {
-      alert('Please login to L2 account first');
+      alert('Please connect L2 account first');
       return;
     }
 
@@ -180,21 +126,23 @@ function App() {
     }
     
     try {
-      await walletDeposit(dispatch, {
+      // Use the unified deposit method from wallet context
+      await deposit({
         tokenIndex: 0,
-        amount: Number(depositAmount),
-        l2account: l2account,
-        l1account: l1Account
+        amount: Number(depositAmount)
       });
+      
+      alert('Deposit successful!');
     } catch (error) {
       console.error('Deposit failed:', error);
+      alert(`Deposit failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
-  // Wallet disconnect
-  const handleWalletDisconnect = async () => {
+  // Wallet disconnect - now simplified!
+  const handleDisconnect = async () => {
     try {
-      await reset(dispatch);
+      await disconnect();
     } catch (error) {
       console.error('Disconnect failed:', error);
     }
@@ -203,21 +151,8 @@ function App() {
   // Direct Provider signing test
   const handleTestSign = async () => {
     try {
-      // Ensure RainbowKit provider is initialized (if using rainbow type)
-      const { getProvider, DelphinusRainbowConnector } = await import('../../src/providers/provider');
-      const currentProvider = await getProvider();
-      
-      if (currentProvider instanceof DelphinusRainbowConnector && address && chainId) {
-        try {
-          await currentProvider.connect();
-        } catch (error) {
-          console.log('Initializing RainbowKit provider for sign test');
-          await currentProvider.initialize(address as `0x${string}`, chainId);
-        }
-      }
-      
       const signature = await withProvider(async (provider: DelphinusProvider) => {
-        return await provider.sign('Hello from new Provider pattern!');
+        return await provider.sign('Hello from unified wallet context!');
       });
       alert(`Signature: ${signature.substring(0, 20)}...`);
     } catch (error) {
@@ -226,7 +161,7 @@ function App() {
     }
   };
 
-      // If there are configuration errors, show error messages
+  // If there are configuration errors, show error messages
   if (configErrors.length > 0) {
     return (
       <div className="App">
@@ -256,59 +191,21 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
     );
   }
 
-  // Render wallet connection buttons
-  const renderWalletConnectButtons = () => {
-    if (isConnected) {
-      return (
-        <div className="wallet-section">
-          <div className="wallet-info">
-            <h3>Wallet Connected</h3>
-            <p>Address: {address}</p>
-            <p>Chain ID: {chainId}</p>
-          </div>
-          <div className="wallet-actions">
-            <button 
-              onClick={handleWalletDisconnect}
-              className="disconnect-btn"
-            >
-              Disconnect
-            </button>
-            <button 
-              onClick={handleTestSign}
-              className="test-btn"
-            >
-              Test Sign
-            </button>
-            <button 
-              onClick={testProviderConnection}
-              className="test-btn"
-            >
-              Test Provider
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    // If wallet is not connected, don't show any buttons
-    // L1 login button will automatically handle wallet connection
-    return null;
-  };
-
   return (
     <div className="App">
       <div className="container">
-        <h1>zkWasm Mini Rollup - New Provider Pattern</h1>
+        <h1>zkWasm Mini Rollup - Unified Wallet Context</h1>
         
-        {/* Provider Pattern Info */}
+        {/* Unified Context Info */}
         <div className="provider-info">
-          <h2>🚀 New Provider Design Pattern</h2>
-          <p>This example now uses the unified Provider pattern with:</p>
+          <h2>🎯 Unified Wallet Context Pattern</h2>
+          <p>This example now uses the unified wallet context with:</p>
           <ul>
-            <li>✅ Unified environment variable handling</li>
-            <li>✅ Automatic provider configuration</li>
-            <li>✅ Type-safe provider interface</li>
-            <li>✅ Support for all React project types</li>
+            <li>✅ Single <code>useWalletContext</code> hook for everything</li>
+            <li>✅ Automatic state management and synchronization</li>
+            <li>✅ Built-in PID (Player ID) calculation</li>
+            <li>✅ Type-safe interface with full L2 account access</li>
+            <li>✅ Simplified error handling and status management</li>
           </ul>
         </div>
 
@@ -336,39 +233,75 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
           </div>
 
           <div className="demo-section">
-            <h3>useZkWasmWallet Hook (Recommended)</h3>
+            <h3>useWalletContext Hook (Recommended)</h3>
             <div className="account-status">
-              <p><strong>Connected:</strong> {isConnected ? 'Yes' : 'No'}</p>
-              {address && <p><strong>Address:</strong> {address}</p>}
-              {chainId && <p><strong>Chain ID:</strong> {chainId}</p>}
+              <p><strong>L1 Connected:</strong> {isConnected ? '✅' : '❌'}</p>
+              <p><strong>L2 Connected:</strong> {isL2Connected ? '✅' : '❌'}</p>
+              <p><strong>Address:</strong> {address || 'Not connected'}</p>
+              <p><strong>Chain ID:</strong> {chainId || 'Unknown'}</p>
+              <p><strong>Player ID:</strong> {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
             </div>
-            <p><small>Unified wallet state via zkWasm SDK (replaces useAccount)</small></p>
+            <p><small>Unified wallet state via zkWasm SDK (one hook for everything!)</small></p>
           </div>
         </div>
         
-        {/* Wallet Connection */}
-        {renderWalletConnectButtons()}
+        {/* Wallet Connection Actions */}
+        {isConnected && (
+          <div className="wallet-section">
+            <div className="wallet-info">
+              <h3>Wallet Connected</h3>
+              <p>Address: {address}</p>
+              <p>Chain ID: {chainId}</p>
+            </div>
+            <div className="wallet-actions">
+              <button 
+                onClick={handleDisconnect}
+                className="disconnect-btn"
+              >
+                Disconnect
+              </button>
+              <button 
+                onClick={handleTestSign}
+                className="test-btn"
+              >
+                Test Sign
+              </button>
+              <button 
+                onClick={testProviderConnection}
+                className="test-btn"
+              >
+                Test Provider
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* L1 Account Section */}
         <div className="account-section">
           <h2>L1 Account (Target Network)</h2>
           
-          {!isL1Connected ? (
+          {!isConnected ? (
             <div>
-              <p>Please login to L1 account to use target network functionality</p>
+              <p>Please connect your wallet to access L1 functionality</p>
               <button 
-                onClick={handleL1Login} 
-                disabled={isL1Connecting}
+                onClick={handleL1Connect} 
+                disabled={isLoading}
                 className="login-button"
               >
-                {isL1Connecting ? 'Connecting...' : 'Connect L1 Account'}
+                {isLoading ? 'Connecting...' : 'Connect Wallet & L1 Account'}
               </button>
-              <p><small>If wallet is not connected, clicking the button will automatically open the connection modal</small></p>
-              {status === 'L1AccountError' && (
-                <p className="error-message">
-                  <small>⚠️ Login failed, please check wallet connection or network settings and try again</small>
-                </p>
-              )}
+              <p><small>This will automatically open wallet connection if needed</small></p>
+            </div>
+          ) : !l1Account ? (
+            <div>
+              <p>Wallet connected! Now login to L1 account.</p>
+              <button 
+                onClick={handleL1Connect} 
+                disabled={isLoading}
+                className="login-button"
+              >
+                {isLoading ? 'Connecting...' : 'Login L1 Account'}
+              </button>
             </div>
           ) : (
             <div className="account-info">
@@ -393,23 +326,28 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
           
           {!isL2Connected ? (
             <div>
-              <p>Generate L2 key pair by signing fixed message "0xAUTOMATA"</p>
-              <p><small>L2 private key will be securely generated from your signature of the fixed message</small></p>
+              <p>Generate L2 key pair by signing fixed message "WalletContext"</p>
+              <p><small>L2 private key will be securely generated from your signature</small></p>
               <button 
-                onClick={handleL2Login} 
-                disabled={!isConnected || isL2Connecting}
+                onClick={handleL2Connect} 
+                disabled={!isConnected || isLoading}
                 className="login-button"
               >
-                {isL2Connecting ? 'Generating L2 Keys...' : 'Generate L2 Account'}
+                {isLoading ? 'Generating L2 Keys...' : 'Generate L2 Account'}
               </button>
             </div>
           ) : (
             <div className="account-info">
               <p className="success">✅ L2 Account Generated</p>
-              <p><strong>L2 Public Key:</strong> {l2account.toHexStr()}</p>
-              <p><strong>L2 PID[1]:</strong> {l2account.getPidArray()[0].toString()}</p>
-              <p><strong>L2 PID[2]:</strong> {l2account.getPidArray()[1].toString()}</p>
-              <p><small>This key pair was generated by signing the fixed message "0xAUTOMATA"</small></p>
+              <p><strong>L2 Public Key:</strong> {l2Account?.toHexStr()}</p>
+              <p><strong>Player ID:</strong> {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'Calculating...'}</p>
+              {l2Account && (
+                <>
+                  <p><strong>L2 PID[1]:</strong> {l2Account.getPidArray()[0].toString()}</p>
+                  <p><strong>L2 PID[2]:</strong> {l2Account.getPidArray()[1].toString()}</p>
+                </>
+              )}
+              <p><small>L2 account automatically provides PID array via unified context</small></p>
               <div className="account-actions">
                 <p>L2 account can perform the following operations:</p>
                 <ul>
@@ -427,8 +365,8 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
         <div className="deposit-section">
           <h2>Deposit from L1 to L2 Contract</h2>
           
-          {!isL1Connected || !isL2Connected ? (
-            <p className="warning">⚠️ Please login to both L1 and L2 accounts to make deposits</p>
+          {!isConnected || !isL2Connected ? (
+            <p className="warning">⚠️ Please connect both L1 and L2 accounts to make deposits</p>
           ) : (
             <div className="deposit-form">
               <div className="input-group">
@@ -446,17 +384,18 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
               
               <button 
                 onClick={handleDeposit}
-                disabled={isDepositing || !depositAmount || parseFloat(depositAmount) <= 0}
+                disabled={isLoading || !depositAmount || parseFloat(depositAmount) <= 0}
                 className="deposit-button"
               >
-                {isDepositing ? 'Depositing...' : `Deposit ${depositAmount} Tokens to L2`}
+                {isLoading ? 'Depositing...' : `Deposit ${depositAmount} Tokens to L2`}
               </button>
               
               <div className="deposit-info">
-                <p><strong>From L1 Address:</strong> {l1Account.address}</p>
+                <p><strong>From L1 Address:</strong> {l1Account?.address}</p>
                 <p><strong>To Deposit Contract:</strong> {envConfig.depositContract || 'Configuring...'}</p>
                 <p><strong>Using Token Contract:</strong> {envConfig.tokenContract || 'Configuring...'}</p>
-                <p><strong>L2 Recipient:</strong> {l2account.toHexStr()}</p>
+                <p><strong>L2 Recipient:</strong> {l2Account?.toHexStr()}</p>
+                <p><strong>Player ID:</strong> {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'Calculating...'}</p>
                 <p><small>Deposit will send tokens from your L1 address to the deposit contract and record to L2 account</small></p>
               </div>
             </div>
@@ -471,14 +410,22 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
               <span className="status-label">Wallet Connection:</span>
               <span className="status-value">{isConnected ? 'Connected' : 'Disconnected'}</span>
             </div>
-            <div className={`status-item ${isL1Connected ? 'connected' : 'disconnected'}`}>
+            <div className={`status-item ${l1Account ? 'connected' : 'disconnected'}`}>
               <span className="status-label">L1 Account:</span>
-              <span className="status-value">{isL1Connected ? 'Logged In' : 'Not Logged In'}</span>
+              <span className="status-value">{l1Account ? 'Logged In' : 'Not Logged In'}</span>
             </div>
             <div className={`status-item ${isL2Connected ? 'connected' : 'disconnected'}`}>
               <span className="status-label">L2 Account:</span>
               <span className="status-value">{isL2Connected ? 'Logged In' : 'Not Logged In'}</span>
             </div>
+          </div>
+          
+          <div className="unified-context-status">
+            <h3>Unified Context Status</h3>
+            <p>✅ All wallet state managed by single <code>useWalletContext</code> hook</p>
+            <p>✅ Automatic state synchronization and PID calculation</p>
+            <p>✅ Simplified error handling and loading states</p>
+            <p>Status: {status}</p>
           </div>
           
           {lastError && (
@@ -506,11 +453,12 @@ REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
           </div>
           
           <div className="provider-status">
-            <h3>Provider Pattern Status</h3>
-            <p>✅ Using unified Provider design pattern</p>
-            <p>✅ Environment variables loaded via adapter</p>
-            <p>✅ Type-safe provider interface</p>
+            <h3>Unified Context Pattern Status</h3>
+            <p>✅ Using unified wallet context design pattern</p>
+            <p>✅ Environment variables loaded via dotenv adapter</p>
+            <p>✅ Type-safe wallet interface</p>
             <p>✅ Automatic provider configuration</p>
+            <p>✅ Built-in PID management and L2 account methods</p>
           </div>
         </div>
       </div>

@@ -1,29 +1,37 @@
-# zkWasm Mini Rollup - Split Hooks Architecture Example
+# zkWasm Mini Rollup - Unified Wallet Context Example
 
-This is a complete example application demonstrating the new **Split Hooks Architecture** in a zkWasm Mini Rollup project. The new architecture provides optimal performance through separation of connection state and wallet actions.
+This is a complete example application demonstrating the new **Unified Wallet Context Architecture** in a zkWasm Mini Rollup project. The new architecture provides optimal developer experience through a single hook that contains all wallet functionality.
 
 ## Architecture Overview
 
-### Split Hooks Benefits
+### Unified Context Benefits
 
-The new architecture replaces the monolithic `useZkWasmWallet` with specialized hooks:
+The new architecture replaces complex hook combinations with a single `useWalletContext` hook:
 
-1. **`useConnection()`**: Provides connection state only
-   - `isConnected`, `address`, `chainId`
-   - Optimized for components that only need to display connection status
-   - Minimal re-renders
+1. **`useWalletContext()`**: Provides complete wallet functionality
+   - Connection states: `isConnected`, `isL2Connected`, `address`, `chainId`
+   - Account info: `l1Account`, `l2Account` (with all methods)
+   - PID management: `playerId` array automatically calculated
+   - Actions: `connectL1`, `connectL2`, `disconnect`
+   - Zero dependencies required
 
-2. **`useWalletActions(address, chainId)`**: Provides wallet operations
-   - `connectAndLoginL1`, `loginL2`, `deposit`, `reset`
-   - Depends on connection state parameters
-   - Only used in components that perform actions
+2. **Advanced hooks** (optional): For users who need granular control
+   - `useConnection()`: Connection state only
+   - `useWalletActions(address, chainId)`: Wallet operations
+   - Direct Redux access via `useSelector`
 
 ### Before vs After
 
 ```tsx
-// ✅ New Approach - Split Hooks
+// ✅ New Approach - Unified Context (Recommended)
+const {
+  isConnected, isL2Connected, l1Account, l2Account, playerId,
+  address, chainId, connectL1, connectL2, disconnect
+} = useWalletContext();
+
+// 🔧 Advanced Approach - Split Hooks (Optional)
 const { isConnected, address, chainId } = useConnection();
-const { connectAndLoginL1, loginL2, deposit, reset } = useWalletActions(address, chainId);
+const { connectAndLoginL1, loginL2 } = useWalletActions(address, chainId);
 ```
 
 ## Quick Start
@@ -92,7 +100,7 @@ npm run dev:example
 
 The application will start at `http://localhost:5173`.
 
-## Split Hooks Usage Examples
+## Unified Context Usage Examples
 
 ### Basic Implementation
 
@@ -100,8 +108,7 @@ The application will start at `http://localhost:5173`.
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  useConnection,
-  useWalletActions,
+  useWalletContext,
   type AccountState,
 } from '../../src/index';
 
@@ -113,23 +120,25 @@ interface RootState {
 function WalletExample() {
   const dispatch = useDispatch();
   
-  // Split hooks for optimal performance
-  const { isConnected, address, chainId } = useConnection();
-  const { connectAndLoginL1, loginL2, deposit, reset } = useWalletActions(address, chainId);
+  // Unified context for optimal performance
+  const {
+    isConnected, isL2Connected, l1Account, l2Account, playerId,
+    address, chainId, connectL1, connectL2, disconnect
+  } = useWalletContext();
   
   // Redux state
-  const { l1Account, l2account, status } = useSelector((state: RootState) => state.account);
+  const { l1Account: reduxL1Account, l2Account: reduxL2Account, status } = useSelector((state: RootState) => state.account);
   
   // Derived states
   const isL1Connected = !!l1Account;
-  const isL2Connected = !!l2account;
+  const isL2Connected = !!l2Account;
   const isL1Connecting = status === 'LoadingL1';
   const isL2Connecting = status === 'LoadingL2';
   const isDepositing = status === 'Deposit';
 
   const handleConnect = async () => {
     try {
-      await connectAndLoginL1(dispatch);
+      await connectL1(dispatch);
     } catch (error) {
       console.error('Connection failed:', error);
     }
@@ -137,7 +146,7 @@ function WalletExample() {
 
   const handleL2Login = async () => {
     try {
-      await loginL2(dispatch, "MyApp");
+      await connectL2(dispatch, "MyApp");
     } catch (error) {
       console.error('L2 login failed:', error);
     }
@@ -150,11 +159,11 @@ function WalletExample() {
     }
 
     try {
-      await deposit(dispatch, {
+      await connectL2(dispatch, {
         tokenIndex: 0,
         amount: 0.01,
         l1account: l1Account,
-        l2account: l2account
+        l2account: l2Account
       });
     } catch (error) {
       console.error('Deposit failed:', error);
@@ -162,7 +171,7 @@ function WalletExample() {
   };
 
   const handleReset = async () => {
-    await reset(dispatch);
+    await disconnect(dispatch);
   };
 
   return (
@@ -213,9 +222,8 @@ import {
   // RainbowKit components from SDK
   ConnectButton,
   useConnectModal,
-  // Split hooks
-  useConnection,
-  useWalletActions,
+  // Unified context
+  useWalletContext,
 } from '../../src/index';
 
 function RainbowKitIntegration() {
@@ -238,7 +246,7 @@ function RainbowKitIntegration() {
         <div>
           <p>Connected with: {address}</p>
           <p>Chain: {chainId}</p>
-          <button onClick={() => connectAndLoginL1(dispatch)}>
+          <button onClick={() => connectL1(dispatch)}>
             Login L1 Account
           </button>
         </div>
@@ -266,34 +274,28 @@ if (!validation.isValid) {
 }
 ```
 
-### 2. Split Hooks Performance Benefits
+### 2. Unified Context Performance Benefits
 
-Components only re-render when their specific data changes:
+Single hook provides all wallet functionality with optimized internal state management:
 
 ```typescript
-// This component only re-renders when connection state changes
-function ConnectionDisplay() {
-  const { isConnected, address, chainId } = useConnection();
+// This component gets all wallet functionality from one hook
+function WalletDisplay() {
+  const {
+    isConnected, isL2Connected, l1Account, l2Account, playerId,
+    address, chainId, connectL1, connectL2, disconnect
+  } = useWalletContext();
   
   return (
     <div>
-      Status: {isConnected ? 'Connected' : 'Disconnected'}
-      Address: {address}
-      Chain: {chainId}
-    </div>
-  );
-}
-
-// This component only re-renders when action dependencies change
-function WalletActions() {
-  const { isConnected, address, chainId } = useConnection();
-  const { connectAndLoginL1, loginL2 } = useWalletActions(address, chainId);
-  
-  // Actions depend on connection state
-  return (
-    <div>
-      <button onClick={() => connectAndLoginL1(dispatch)}>Connect L1</button>
-      <button onClick={() => loginL2(dispatch, "MyApp")}>Login L2</button>
+      <p>Status: L1 {isConnected ? '✅' : '❌'} | L2 {isL2Connected ? '✅' : '❌'}</p>
+      <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
+      <p>Address: {address}</p>
+      <p>Chain: {chainId}</p>
+      
+      <button onClick={connectL1}>Connect L1</button>
+      <button onClick={connectL2}>Connect L2</button>
+      <button onClick={disconnect}>Disconnect</button>
     </div>
   );
 }
@@ -303,30 +305,47 @@ function WalletActions() {
 
 The app demonstrates proper state management for wallet connections:
 
-- **State Reset on Disconnect**: Automatically clears account state when wallet disconnects
-- **Account Switching Detection**: Detects when user switches between wallet accounts
-- **Auto-Login Logic**: Intelligently determines when to auto-login based on connection state
+- **Unified State**: All wallet state managed internally by `useWalletContext`
+- **Account Switching Detection**: Automatically detects wallet account changes
+- **Auto-State Updates**: Context automatically updates when underlying state changes
 
-### 4. L1 & L2 Account Management
+### 4. L1 & L2 Account Management with PID
 
-- **L1 Account**: Uses the wallet connection directly
-- **L2 Account**: Generated from wallet signature using deterministic key derivation
-- **State Synchronization**: Keeps Redux state in sync with wallet state
+- **L1 Account**: Direct wallet connection information
+- **L2 Account**: Generated from wallet signature with full L2AccountInfo instance
+- **Player ID (PID)**: Automatically calculated array from L2 account
+- **State Synchronization**: Context keeps all state synchronized
 
-### 5. Enhanced Deposit Operations
+### 5. Enhanced Account Operations
 
-- **Input Validation**: Validates deposit amount and account states
-- **Error Handling**: Comprehensive error handling with user-friendly messages
-- **Status Tracking**: Real-time status updates during deposit process
+- **L2 Account Methods**: Access all L2AccountInfo methods directly from context
+- **PID Management**: Player ID automatically updated when L2 account changes
+- **Serialization**: Full support for L2 account serialization/deserialization
 
 ## Technical Architecture
 
 ### State Management Structure
 
 ```typescript
+// Unified Context provides all of this internally
+interface WalletContextType {
+  isConnected: boolean;
+  isL2Connected: boolean;
+  l1Account: any;
+  l2Account: any;
+  playerId: [string, string] | null;
+  address: string | undefined;
+  chainId: number | undefined;
+  connectL1: () => Promise<void>;
+  connectL2: () => Promise<void>;
+  disconnect: () => void;
+  setPlayerId: (id: [string, string]) => void;
+}
+
+// Advanced users can still access Redux state directly
 interface AccountState {
   l1Account?: L1AccountInfo;
-  l2account?: L2AccountInfo;
+  l2Account?: L2AccountInfo;
   status: 'Initial' | 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
 }
 
@@ -338,11 +357,12 @@ interface RootState {
 ### Hook Dependencies
 
 ```typescript
-// useConnection - No dependencies
-const { isConnected, address, chainId } = useConnection();
+// useWalletContext - No dependencies required (Recommended)
+const walletContext = useWalletContext();
 
-// useWalletActions - Requires connection state
-const { connectAndLoginL1, loginL2, deposit, reset } = useWalletActions(address, chainId);
+// Advanced hooks - Require dependencies
+const { isConnected, address, chainId } = useConnection();
+const { connectAndLoginL1, loginL2 } = useWalletActions(address, chainId);
 ```
 
 ### Provider Configuration
@@ -358,26 +378,72 @@ interface ProviderConfig {
 
 ## Advanced Usage Patterns
 
-### Conditional Hook Usage
+### Unified Context with Direct L2 Account Access
 
 ```typescript
-// Only use wallet actions when connected
-function ConditionalActions() {
-  const { isConnected, address, chainId } = useConnection();
-  
-  // Only initialize wallet actions when connected
-  const walletActions = isConnected 
-    ? useWalletActions(address, chainId)
-    : null;
+function AdvancedL2Operations() {
+  const { l2Account, playerId } = useWalletContext();
+
+  const handleL2Operations = React.useCallback(() => {
+    if (!l2Account) return;
+
+    // Access all L2AccountInfo methods directly
+    const serialized = l2Account.toSerializableData();
+    const [pid1, pid2] = l2Account.getPidArray();
+    const pubkeyHex = l2Account.toHexStr();
+
+    console.log('L2 Account Operations:', {
+      serialized,
+      pidArray: [pid1.toString(), pid2.toString()],
+      pubkeyHex,
+      contextPlayerId: playerId
+    });
+  }, [l2Account, playerId]);
+
+  return (
+    <div>
+      <button onClick={handleL2Operations}>
+        Perform L2 Operations
+      </button>
+    </div>
+  );
+}
+```
+
+### Conditional Context Usage
+
+```typescript
+// Use context conditionally based on component needs
+function ConditionalWallet() {
+  const { isConnected, connectL1 } = useWalletContext();
   
   if (!isConnected) {
-    return <div>Please connect your wallet</div>;
+    return <button onClick={connectL1}>Connect Wallet</button>;
   }
   
+  return <ConnectedWalletView />;
+}
+
+function ConnectedWalletView() {
+  // Only use full context when connected
+  const { 
+    isL2Connected, l1Account, l2Account, playerId, 
+    connectL2, disconnect 
+  } = useWalletContext();
+  
   return (
-    <button onClick={() => walletActions?.connectAndLoginL1(dispatch)}>
-      Login L1
-    </button>
+    <div>
+      <p>L1 Account: {l1Account?.address}</p>
+      <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
+      
+      {!isL2Connected ? (
+        <button onClick={connectL2}>Connect L2</button>
+      ) : (
+        <p>L2 Connected: {l2Account?.toHexStr()}</p>
+      )}
+      
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
   );
 }
 ```
@@ -385,12 +451,12 @@ function ConditionalActions() {
 ### Error Boundary Integration
 
 ```typescript
-function ErrorBoundary({ children }) {
+function WalletErrorBoundary({ children }) {
   const [hasError, setHasError] = React.useState(false);
   
   React.useEffect(() => {
     const handleError = (event) => {
-      console.error('Split hooks error:', event.error);
+      console.error('Wallet context error:', event.error);
       setHasError(true);
     };
     
@@ -399,29 +465,68 @@ function ErrorBoundary({ children }) {
   }, []);
   
   if (hasError) {
-    return <div>Something went wrong with wallet connection.</div>;
+    return (
+      <div>
+        <h3>Wallet Connection Error</h3>
+        <p>Something went wrong with the wallet connection.</p>
+        <button onClick={() => setHasError(false)}>Retry</button>
+      </div>
+    );
   }
   
   return children;
 }
 ```
 
-### Custom Hook Composition
+### Mixing Unified Context with Advanced Hooks
 
 ```typescript
-// Create a custom hook that combines connection and actions
-function useWalletState() {
-  const connection = useConnection();
-  const actions = useWalletActions(connection.address, connection.chainId);
-  const accountState = useSelector((state: RootState) => state.account);
+// Use unified context for most functionality, advanced hooks for special cases
+function HybridWalletComponent() {
+  const dispatch = useDispatch();
   
-  return {
-    ...connection,
-    ...actions,
-    ...accountState,
-    isL1Connected: !!accountState.l1Account,
-    isL2Connected: !!accountState.l2account,
+  // Unified context for most functionality
+  const {
+    isConnected, isL2Connected, l1Account, l2Account, playerId,
+    address, chainId, connectL1, connectL2, disconnect
+  } = useWalletContext();
+  
+  // Advanced hooks for special operations requiring dispatch
+  const { deposit, reset } = useWalletActions(address, chainId);
+  
+  // Direct Redux state for status monitoring
+  const { status } = useSelector((state: RootState) => state.account);
+
+  const handleDeposit = async () => {
+    if (!isL2Connected) {
+      alert('Please connect L2 first');
+      return;
+    }
+
+    try {
+      await deposit(dispatch, {
+        tokenIndex: 0,
+        amount: 0.01,
+        l1account: l1Account,
+        l2account: l2Account
+      });
+    } catch (error) {
+      console.error('Deposit failed:', error);
+    }
   };
+
+  return (
+    <div>
+      <p>Status: {status}</p>
+      <p>L1: {isConnected ? '✅' : '❌'} | L2: {isL2Connected ? '✅' : '❌'}</p>
+      <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
+      
+      <button onClick={connectL1}>Connect L1</button>
+      <button onClick={connectL2}>Connect L2</button>
+      <button onClick={handleDeposit}>Deposit</button>
+      <button onClick={disconnect}>Disconnect</button>
+    </div>
+  );
 }
 ```
 
@@ -429,22 +534,41 @@ function useWalletState() {
 
 ### Common Issues
 
-1. **Missing Hook Dependencies**
+1. **Missing Context Provider**
    ```typescript
-   // ❌ Wrong - Missing dependencies
-   const { connectAndLoginL1 } = useWalletActions();
+   // ❌ Wrong - useWalletContext used outside provider
+   function App() {
+     const wallet = useWalletContext(); // Error!
+     return <div>...</div>;
+   }
    
-   // ✅ Correct - With dependencies
-   const { isConnected, address, chainId } = useConnection();
-   const { connectAndLoginL1 } = useWalletActions(address, chainId);
+   // ✅ Correct - Wrapped in provider
+   function App() {
+     return (
+       <DelphinusReactProvider>
+         <WalletComponent />
+       </DelphinusReactProvider>
+     );
+   }
    ```
 
-2. **State Synchronization Issues**
+2. **PID Consistency Issues**
    ```typescript
-   // Monitor connection state changes
-   useEffect(() => {
-     console.log('Connection state:', { isConnected, address, chainId });
-   }, [isConnected, address, chainId]);
+   // Monitor PID consistency
+   const { l2Account, playerId } = useWalletContext();
+   
+   React.useEffect(() => {
+     if (l2Account && playerId) {
+       const [pid1, pid2] = l2Account.getPidArray();
+       const matches = 
+         playerId[0] === pid1.toString() && 
+         playerId[1] === pid2.toString();
+       
+       if (!matches) {
+         console.warn('PID mismatch detected');
+       }
+     }
+   }, [l2Account, playerId]);
    ```
 
 3. **Provider Configuration Errors**
@@ -456,4 +580,4 @@ function useWalletState() {
    }
    ```
 
-For detailed performance metrics, run the example and monitor the React DevTools Profiler. 
+For performance metrics and debugging, use React DevTools Profiler to monitor component re-renders. 

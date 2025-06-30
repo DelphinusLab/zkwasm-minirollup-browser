@@ -50,7 +50,7 @@ export interface WagmiHookTypes {
 
 // RPC 响应类型
 export interface RpcResponse<T = any> {
-  data: string;
+  data: T;
   status?: number;
 }
 
