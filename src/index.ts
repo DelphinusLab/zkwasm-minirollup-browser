@@ -44,8 +44,11 @@ export {
 
 // New zkWasm SDK exports - state management and React Hooks
 export {
-  // New Provider pattern React Hook
-  useZkWasmWallet,
+  // Connection state hook
+  useConnection,
+  
+  // Wallet actions hook
+  useWalletActions,
   
   // Types
   type AccountState,
@@ -58,23 +61,31 @@ export {
 /*
 Usage:
 
-Option 1: Unified Provider:
+Option 1: Unified Provider + Split Hooks (Recommended):
 ```typescript
-import { DelphinusReactProvider, useZkWasmWallet } from 'zkwasm-minirollup-browser';
+import { 
+  DelphinusReactProvider, 
+  useConnection, 
+  useWalletActions 
+} from 'zkwasm-minirollup-browser';
 
 // In main.tsx
 <DelphinusReactProvider appName="Your App">
   <App />
 </DelphinusReactProvider>
 
-// In components
-const wallet = useZkWasmWallet();
+// In components that only need connection state
+const { isConnected, address, chainId } = useConnection();
+
+// In components that need wallet operations
+const { connectAndLoginL1, loginL2, deposit, reset } = useWalletActions(address, chainId);
 ```
 
 Option 2: Direct Provider pattern:
 ```typescript
 import { 
-  useZkWasmWallet, 
+  useConnection,
+  useWalletActions,
   setProviderConfig, 
   withProvider 
 } from 'zkwasm-minirollup-browser';
@@ -82,8 +93,9 @@ import {
 // Configure provider (execute once at app startup)
 setProviderConfig({ type: 'rainbow' });
 
-// Use hook
-const wallet = useZkWasmWallet();
+// Use split hooks
+const { isConnected, address, chainId } = useConnection();
+const { connectAndLoginL1 } = useWalletActions(address, chainId);
 
 // Or use provider directly
 const result = await withProvider(async (provider) => {
@@ -98,6 +110,11 @@ import {
   useConnectModal 
 } from 'zkwasm-minirollup-browser';
 ```
+
+Benefits of split hooks:
+- Better performance (only re-render when needed)
+- Cleaner code organization
+- Easier testing and debugging
 
 Environment variables:
 - All projects use REACT_APP_ prefix

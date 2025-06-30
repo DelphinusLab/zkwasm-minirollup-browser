@@ -1,4 +1,3 @@
-import { DelphinusRainbowConnector } from '../providers/provider';
 import { ERROR_MESSAGES } from './constants';
 import { createError } from './errors';
 
@@ -6,7 +5,7 @@ import { createError } from './errors';
  * 初始化 RainbowKit Provider (如果需要)
  * @param address - 钱包地址
  * @param chainId - 链ID
- * @returns Promise<DelphinusRainbowConnector>
+ * @returns Promise<void>
  */
 export async function initializeRainbowProviderIfNeeded(
   address?: string, 
@@ -21,52 +20,18 @@ export async function initializeRainbowProviderIfNeeded(
     const currentProvider = await getProvider();
     
     if (currentProvider instanceof DelphinusRainbowConnector) {
+      // 检查是否需要初始化，避免重复初始化
       try {
-        // 检查是否已经初始化
-        await currentProvider.connect();
-      } catch (error) {
-        // 如果连接失败，重新初始化
         await currentProvider.initialize(address as `0x${string}`, chainId);
+      } catch (error) {
+        console.error('Provider initialization failed:', error);
+        throw error;
       }
     }
   } catch (error) {
     throw createError(
       `Failed to initialize provider: ${error instanceof Error ? error.message : 'Unknown error'}`,
       'PROVIDER_INIT_FAILED',
-      error
-    );
-  }
-}
-
-/**
- * 获取 MetaMask 账户信息
- * @returns Promise<{address: string, chainId: number}>
- */
-export async function getMetaMaskAccountInfo(): Promise<{address: string, chainId: number}> {
-  if (typeof window === 'undefined' || !window.ethereum) {
-    throw createError(ERROR_MESSAGES.NO_ETHEREUM, 'NO_ETHEREUM');
-  }
-
-  try {
-    const accounts = await window.ethereum.request({ 
-      method: 'eth_requestAccounts' 
-    });
-    const chainId = await window.ethereum.request({ 
-      method: 'eth_chainId' 
-    });
-    
-    if (!accounts || accounts.length === 0) {
-      throw createError(ERROR_MESSAGES.NO_ACCOUNT, 'NO_ACCOUNT');
-    }
-
-    return {
-      address: accounts[0],
-      chainId: parseInt(chainId, 16)
-    };
-  } catch (error) {
-    throw createError(
-      `Failed to get MetaMask account info: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'METAMASK_ERROR',
       error
     );
   }
@@ -90,9 +55,26 @@ export async function getConnectedAccounts(): Promise<string[]> {
   }
 
   try {
+    // 使用 eth_accounts 获取已连接的账户（不会弹窗）
     const accounts = await window.ethereum!.request({ 
       method: 'eth_accounts' 
     });
+    
+    // 如果有多个账户，尝试确定当前活跃的账户
+    if (accounts && accounts.length > 1) {
+      try {
+        // 尝试获取当前选中的账户（不同钱包可能有不同的方法）
+        const selectedAddress = await window.ethereum!.request({ 
+          method: 'eth_coinbase' 
+        });
+        if (selectedAddress && accounts.includes(selectedAddress)) {
+          return [selectedAddress, ...accounts.filter((acc: string) => acc !== selectedAddress)];
+        }
+      } catch (error) {
+        // eth_coinbase not supported, use first account
+      }
+    }
+    
     return accounts || [];
   } catch (error) {
     console.warn('Failed to get connected accounts:', error);

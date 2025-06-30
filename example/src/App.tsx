@@ -2,7 +2,8 @@ import '@rainbow-me/rainbowkit/styles.css';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  useZkWasmWallet,
+  useConnection,
+  useWalletActions,
   getEnvConfig,
   validateEnvConfig,
   setProviderConfig,
@@ -30,18 +31,9 @@ function App() {
   // RainbowKit hooks (exported from SDK)
   const { openConnectModal } = useConnectModal();
   
-  // Use zkWasm SDK Hook to replace all wagmi hooks
-  const wallet = useZkWasmWallet();
-  const { 
-    isConnected, 
-    address, 
-    chainId, 
-    connectAndLoginL1, 
-    loginL2, 
-    deposit: walletDeposit, 
-    disconnect,
-    reset 
-  } = wallet;
+  // Use new split hooks approach for better performance
+  const { isConnected, address, chainId } = useConnection();
+  const { connectAndLoginL1, loginL2, deposit: walletDeposit, reset } = useWalletActions(address, chainId);
   
   const [depositAmount, setDepositAmount] = useState('0.01');
   
@@ -63,10 +55,6 @@ function App() {
 
   // Validate environment configuration
   useEffect(() => {
-    console.log('Environment config:', envConfig);
-    console.log('Chain ID from env:', envConfig.chainId);
-    console.log('WalletConnect ID from env:', envConfig.walletConnectId);
-    
     const validation = validateEnvConfig();
     if (!validation.isValid) {
       setConfigErrors(validation.errors);
@@ -87,7 +75,6 @@ function App() {
           isConnected: true
         };
       });
-      console.log('Provider test result:', result);
       return result;
     } catch (error) {
       console.error('Provider test failed:', error);
@@ -98,53 +85,77 @@ function App() {
   // L1 account login
   const handleL1Login = useCallback(async () => {
     try {
-      console.log('Starting wallet connection and L1 login...');
-      const result = await connectAndLoginL1(dispatch);
-      console.log('Connect and L1 login result:', result);
+      await connectAndLoginL1(dispatch);
     } catch (error) {
       console.error('Connect and L1 login failed:', error);
     }
   }, [connectAndLoginL1, dispatch]);
 
-  // Monitor wallet connection status changes, reset state when disconnected
+  // Monitor wallet connection status changes, reset state when disconnected or account changed
   useEffect(() => {
+    console.log('Connection state changed:', { 
+      isConnected, 
+      address, 
+      chainId,
+      l1AccountAddress: l1Account?.address 
+    });
+    
     if (!isConnected) {
       console.log('Wallet disconnected, resetting account state');
       reset(dispatch);
+    } else if (isConnected && address) {
+      // 检查是否是账户切换（地址改变）
+      if (l1Account && l1Account.address && l1Account.address !== address) {
+        console.log('🔄 Account switched detected, resetting state', { 
+          oldAddress: l1Account.address, 
+          newAddress: address 
+        });
+        reset(dispatch);
+      } else if (!l1Account && address) {
+        console.log('✅ New wallet connected, ready for L1 login', { address });
+      }
     }
-  }, [isConnected, dispatch, reset]);
+  }, [isConnected, address, chainId, dispatch, reset, l1Account]);
 
-  // Auto L1 login when wallet is connected - optimized conditions and dependencies
+    // Auto L1 login when wallet is connected - improved conditions and timing
   useEffect(() => {
-    console.log('useEffect triggered with:', { 
+    const debugInfo = { 
       isConnected, 
       hasAddress: !!address,
+      hasChainId: !!chainId,
       hasL1Account: !!l1Account, 
-      status
-    });
+      status,
+      isL1Connecting
+    };
     
-    // Only attempt login when wallet is connected, has address, and status is Initial
-    // This ensures we only try to login once when conditions are met
-    if (isConnected && address && status === 'Initial') {
-      console.log('Wallet connected, attempting L1 login...', { address, chainId });
-      handleL1Login();
+    // Only attempt login when all conditions are met and not already connecting
+    if (isConnected && address && chainId && status === 'Initial' && !l1Account && !isL1Connecting) {
+      console.log('✅ Auto L1 login: All conditions met, starting L1 login...', debugInfo);
+      // Add small delay to ensure wallet state is fully settled
+      const timeoutId = setTimeout(() => {
+        handleL1Login();
+      }, 500);
+      
+      // Cleanup timeout on unmount or dependency change
+      return () => clearTimeout(timeoutId);
+    } else {
+      // 提供更详细的原因说明
+      const reasons = [];
+      if (!isConnected) reasons.push('wallet not connected');
+      if (!address) reasons.push('no address');
+      if (!chainId) reasons.push('no chainId');
+      if (status !== 'Initial') reasons.push(`status is '${status}', not 'Initial'`);
+      if (l1Account) reasons.push('L1 account already exists');
+      if (isL1Connecting) reasons.push('L1 connection in progress');
+      
+      console.log(`⏸️ Auto L1 login: Conditions not met - ${reasons.join(', ')}`, debugInfo);
     }
-  }, [isConnected, address, status, handleL1Login]);
+  }, [isConnected, address, chainId, status, l1Account, isL1Connecting, handleL1Login]);
 
   // L2 account login
   const handleL2Login = async () => {
     try {
-      console.log('L2 login button clicked - starting L2 account generation...');
-      console.log('Current wallet state:', { 
-        isConnected, 
-        address, 
-        chainId,
-        hasL1Account: !!l1Account,
-        status 
-      });
-      
       await loginL2(dispatch, "0xAUTOMATA");
-      console.log('L2 login successful');
     } catch (error) {
       console.error('L2 login failed:', error);
       alert(`L2 login failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -169,22 +180,12 @@ function App() {
     }
     
     try {
-      console.log('Starting deposit...', {
-        tokenIndex: 0,
-        amount: Number(depositAmount),
-        l1account: l1Account,
-        l2account: l2account.toSerializableData(),
-        chainId
-      });
-
       await walletDeposit(dispatch, {
         tokenIndex: 0,
         amount: Number(depositAmount),
         l2account: l2account,
         l1account: l1Account
       });
-      
-      console.log('Deposit successful');
     } catch (error) {
       console.error('Deposit failed:', error);
     }
@@ -194,7 +195,6 @@ function App() {
   const handleWalletDisconnect = async () => {
     try {
       await reset(dispatch);
-      console.log('Wallet disconnected successfully');
     } catch (error) {
       console.error('Disconnect failed:', error);
     }

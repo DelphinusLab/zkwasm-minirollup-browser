@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { withProvider } from '../providers/provider';
-import { hasEthereumProvider, getConnectedAccounts } from '../utils/provider';
+import { useAccount, useChainId } from 'wagmi';
+import { hasEthereumProvider } from '../utils/provider';
 
 interface ConnectionState {
   isConnected: boolean;
@@ -15,85 +15,68 @@ export function useConnection(): ConnectionState {
     chainId: undefined
   });
 
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        if (!hasEthereumProvider()) {
-          setConnectionState({
-            isConnected: false,
-            address: undefined,
-            chainId: undefined
-          });
-          return;
-        }
+  // 直接使用 wagmi hooks - 这是正确的方式
+  const { address: wagmiAddress, isConnected: wagmiIsConnected } = useAccount();
+  const wagmiChainId = useChainId();
 
-        const accounts = await getConnectedAccounts();
-        
-        if (accounts.length > 0) {
-          try {
-            const result = await withProvider(async (provider) => {
-              const networkId = await provider.getNetworkId();
-              return {
-                isConnected: true,
-                address: accounts[0],
-                chainId: Number(networkId)
-              };
-            });
-            
-            setConnectionState(result);
-          } catch (error) {
-            console.warn('Provider error while checking connection:', error);
-            setConnectionState({
-              isConnected: false,
-              address: undefined,
-              chainId: undefined
-            });
-          }
-        } else {
-          setConnectionState({
-            isConnected: false,
-            address: undefined,
-            chainId: undefined
-          });
-        }
-      } catch (error) {
-        console.warn('Connection check error:', error);
-        setConnectionState({
-          isConnected: false,
-          address: undefined,
-          chainId: undefined
+  useEffect(() => {
+    // 直接使用 wagmi 的状态
+    const newState = {
+      isConnected: wagmiIsConnected,
+      address: wagmiAddress,
+      chainId: wagmiChainId
+    };
+
+    // 检查状态是否真的发生了变化
+    setConnectionState(prevState => {
+      const hasChanged = 
+        prevState.isConnected !== newState.isConnected ||
+        prevState.address !== newState.address ||
+        prevState.chainId !== newState.chainId;
+
+      if (hasChanged) {
+        return newState;
+      }
+
+      return prevState;
+    });
+  }, [wagmiAddress, wagmiIsConnected, wagmiChainId]);
+
+  // 监听以太坊事件以进行状态一致性检查
+  useEffect(() => {
+    if (!hasEthereumProvider()) {
+      return;
+    }
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      // 检查 wagmi 和 ethereum 状态的一致性
+      if (accounts.length > 0 && wagmiAddress && wagmiAddress !== accounts[0]) {
+        console.warn('⚠️ Wagmi and ethereum state mismatch:', {
+          wagmiAddress,
+          ethereumAddress: accounts[0]
         });
       }
     };
 
-    checkConnection();
+    const handleChainChanged = (chainId: string) => {
+      const newChainId = parseInt(chainId, 16);
+      
+      if (wagmiChainId && wagmiChainId !== newChainId) {
+        console.warn('⚠️ Wagmi and ethereum chain mismatch:', {
+          wagmiChainId,
+          ethereumChainId: newChainId
+        });
+      }
+    };
 
-    // 监听账户变化
-    if (hasEthereumProvider()) {
-      const handleAccountsChanged = (accounts: string[]) => {
-        setConnectionState(prev => ({
-          ...prev,
-          isConnected: accounts.length > 0,
-          address: accounts.length > 0 ? accounts[0] : undefined
-        }));
-      };
+    window.ethereum!.on('accountsChanged', handleAccountsChanged);
+    window.ethereum!.on('chainChanged', handleChainChanged);
 
-      const handleChainChanged = (chainId: string) => {
-        setConnectionState(prev => ({
-          ...prev,
-          chainId: parseInt(chainId, 16)
-        }));
-      };
-
-      window.ethereum!.on('accountsChanged', handleAccountsChanged);
-      window.ethereum!.on('chainChanged', handleChainChanged);
-
-      return () => {
-        window.ethereum!.removeListener('accountsChanged', handleAccountsChanged);
-        window.ethereum!.removeListener('chainChanged', handleChainChanged);
-      };
-    }
-  }, []);
+    return () => {
+      window.ethereum!.removeListener('accountsChanged', handleAccountsChanged);
+      window.ethereum!.removeListener('chainChanged', handleChainChanged);
+    };
+  }, [wagmiAddress, wagmiChainId]);
 
   return connectionState;
 } 

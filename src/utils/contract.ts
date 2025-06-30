@@ -3,7 +3,7 @@ import { getEnvConfig } from '../config/env-adapter';
 import { contractABI } from '../contracts/abi';
 import { ERROR_MESSAGES } from './constants';
 import { createError } from './errors';
-import { toWei, calculatePidArray, hasSufficientBalance } from './crypto';
+import { toWei, calculatePidArray, hasSufficientBalance, BN } from './crypto';
 import { L1AccountInfo, SerializableTransactionReceipt } from '../types';
 import { L2AccountInfo } from '../models/L2AccountInfo';
 
@@ -43,15 +43,19 @@ export async function checkAndApproveToken(
   const tokenContractReader = provider.getContractWithoutSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
   
   // 检查余额和授权额度
-  const balance = await tokenContractReader.getEthersContract().balanceOf(l1account.address);
-  const allowance = await tokenContractReader.getEthersContract().allowance(l1account.address, proxyAddr);
+  const balanceEthers = await tokenContractReader.getEthersContract().balanceOf(l1account.address);
+  const allowanceEthers = await tokenContractReader.getEthersContract().allowance(l1account.address, proxyAddr);
+  
+  // 转换为 BN.js 格式以便比较
+  const balance = new BN(balanceEthers.toString());
+  const allowance = new BN(allowanceEthers.toString());
   
   console.log("Token balance:", balance.toString());
   console.log("Token allowance:", allowance.toString());
   console.log("Required amount:", amountWei.toString());
   
   // 如果授权不足，先进行授权
-  if (allowance < amountWei) {
+  if (allowance.lt(amountWei)) {
     console.log("Need to approve, current allowance insufficient");
     
     if (!hasSufficientBalance(balance, amountWei)) {
@@ -62,7 +66,7 @@ export async function checkAndApproveToken(
     }
     
     console.log("Approving token spend...");
-    const tx = await tokenContract.getEthersContract().approve(proxyAddr, balance);
+    const tx = await tokenContract.getEthersContract().approve(proxyAddr, balanceEthers);
     console.log("Approval transaction sent:", tx.hash);
     await tx.wait();
     console.log("Approval transaction confirmed");
