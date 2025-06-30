@@ -1,5 +1,17 @@
 // Environment variable adapter - unified use of REACT_APP_ prefix
 
+// Configure dotenv to load .env files
+import { config as dotenvConfig } from 'dotenv';
+
+// Initialize dotenv to load environment variables from .env files
+// This will load .env, .env.local, .env.development, etc.
+try {
+  dotenvConfig();
+} catch (error) {
+  // dotenv is optional, ignore errors if it fails
+  console.debug('dotenv configuration skipped:', error instanceof Error ? error.message : error);
+}
+
 export interface EnvConfig {
   chainId: number;
   depositContract: string;
@@ -32,6 +44,7 @@ export function getEnvConfig(): EnvConfig {
     }
     
     // 2. Check Node.js environment (process.env) - for Create React App, Next.js etc.
+    // This now includes variables loaded by dotenv
     if (typeof process !== 'undefined' && process.env) {
       return {
         chainId: parseInt(process.env.REACT_APP_CHAIN_ID || '11155111'),
