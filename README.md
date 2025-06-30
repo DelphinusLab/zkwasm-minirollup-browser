@@ -1,17 +1,17 @@
 # zkWasm Mini Rollup Browser SDK
 
-A modern, type-safe SDK for zkWasm Mini Rollup integration with unified Provider design pattern, supporting multiple wallet types and blockchain interactions.
+A modern, type-safe SDK for zkWasm Mini Rollup integration with optimized split hooks architecture, supporting multiple wallet types and blockchain interactions.
 
 ## 🚀 Key Features
 
-- **🔗 Unified Provider Pattern** - Single interface for all wallet types and blockchain interactions
+- **🔗 Split Hooks Architecture** - Optimized performance with `useConnection` and `useWalletActions`
 - **🎨 Modern UI Integration** - Complete RainbowKit components exported from SDK
 - **⚡ Simplified Setup** - Single `DelphinusProvider` replaces complex provider nesting
 - **🔧 Environment Management** - Unified REACT_APP_ prefix across all project types
 - **🔄 Compatibility** - Support for multiple React project types
 - **🎯 Type Safety** - Full TypeScript support with comprehensive type definitions
 - **🌐 Cross-Platform** - Works with CRA, Next.js, Vite, and custom builds
-- **⚡ Performance Optimized** - Caching to prevent duplicate initializations
+- **⚡ Performance Optimized** - Separate hooks for connection state and wallet actions
 
 ## 📋 Quick Start
 
@@ -25,14 +25,14 @@ npm install zkwasm-minirollup-browser
 
 ```tsx
 import React from 'react';
-import { DelphinusProvider } from 'zkwasm-minirollup-browser';
+import { DelphinusReactProvider } from 'zkwasm-minirollup-browser';
 import App from './App';
 
 function Main() {
   return (
-    <DelphinusProvider appName="My zkWasm App">
+    <DelphinusReactProvider appName="My zkWasm App">
       <App />
-    </DelphinusProvider>
+    </DelphinusReactProvider>
   );
 }
 
@@ -48,23 +48,26 @@ Create a `.env` file:
 REACT_APP_CHAIN_ID=11155111
 REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
 REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
-REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id   // needed when choose rainbow provider
+REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 
 # Optional Configuration
 REACT_APP_MODE=development
 ```
 
-> **Note**: The new Provider pattern uses unified `REACT_APP_` prefix for all project types (CRA, Next.js, Vite).
+> **Note**: The Provider pattern uses unified `REACT_APP_` prefix for all project types (CRA, Next.js, Vite).
 
 ## 🏗️ Architecture Overview
 
-### Architecture Layers
+### Split Hooks Architecture
+
+The SDK uses a modern split hooks approach for optimal performance:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Application Layer                        │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐ │
-│  │  React Hooks    │  │  Redux Actions  │  │  Components  │ │
+│  │  useConnection  │  │ useWalletActions│  │  Components  │ │
+│  │   (State Only)  │  │ (Actions Only)  │  │              │ │
 │  └─────────────────┘  └─────────────────┘  └──────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
 │                      SDK Core Layer                        │
@@ -87,35 +90,46 @@ REACT_APP_MODE=development
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Benefits of Split Hooks
+
+- **Better Performance**: Components only re-render when needed
+- **Cleaner Code Organization**: Separation of concerns between state and actions  
+- **Easier Testing**: Individual hooks can be tested independently
+- **More Modular**: Use only what you need in each component
+
 ## 🔧 Provider Configuration
 
 ### Rainbow Provider (Recommended)
 
 ```tsx
-import { setProviderConfig, useZkWasmWallet } from 'zkwasm-minirollup-browser';
+import { setProviderConfig, useConnection, useWalletActions } from 'zkwasm-minirollup-browser';
 
 function App() {
   React.useEffect(() => {
     setProviderConfig({ type: 'rainbow' });
   }, []);
 
-  const wallet = useZkWasmWallet();
-  // ... use wallet
+  const { isConnected, address, chainId } = useConnection();
+  const { connectAndLoginL1 } = useWalletActions(address, chainId);
+  
+  // ... use hooks
 }
 ```
 
 ### Browser Provider (MetaMask)
 
 ```tsx
-import { setProviderConfig, useZkWasmWallet } from 'zkwasm-minirollup-browser';
+import { setProviderConfig, useConnection, useWalletActions } from 'zkwasm-minirollup-browser';
 
 function App() {
   React.useEffect(() => {
     setProviderConfig({ type: 'browser' });
   }, []);
 
-  const wallet = useZkWasmWallet();
-  // ... use wallet
+  const { isConnected, address, chainId } = useConnection();
+  const { connectAndLoginL1 } = useWalletActions(address, chainId);
+  
+  // ... use hooks
 }
 ```
 
@@ -159,29 +173,38 @@ function App() {
 
 ## 🎯 Core API Usage
 
-### useZkWasmWallet Hook
+### Split Hooks Approach (Recommended)
 
 ```tsx
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useZkWasmWallet, selectL1Account, selectL2Account } from 'zkwasm-minirollup-browser';
+import { 
+  useConnection, 
+  useWalletActions,
+  type AccountState 
+} from 'zkwasm-minirollup-browser';
+
+// Define your Redux root state type
+interface RootState {
+  account: AccountState;
+}
 
 function WalletComponent() {
   const dispatch = useDispatch();
-  const wallet = useZkWasmWallet();
-  const l1Account = useSelector(selectL1Account);
-  const l2Account = useSelector(selectL2Account);
   
-  const {
-    isConnected,
-    address,
-    chainId,
-    connectAndLoginL1,
-    loginL2,
-    deposit,
-    disconnect,
-    reset
-  } = wallet;
+  // Split hooks for optimal performance
+  const { isConnected, address, chainId } = useConnection();
+  const { connectAndLoginL1, loginL2, deposit, reset } = useWalletActions(address, chainId);
+  
+  // Redux state selectors
+  const { l1Account, l2account, status } = useSelector((state: RootState) => state.account);
+  
+  // Derived states
+  const isL1Connected = !!l1Account;
+  const isL2Connected = !!l2account;
+  const isL1Connecting = status === 'LoadingL1';
+  const isL2Connecting = status === 'LoadingL2';
+  const isDepositing = status === 'Deposit';
 
   const handleConnect = async () => {
     try {
@@ -189,7 +212,6 @@ function WalletComponent() {
       console.log('Connected successfully!', result);
     } catch (error) {
       console.error('Connection failed:', error);
-      // Handle different error types
       if (error.message.includes('User rejected')) {
         alert('Please approve the connection in your wallet');
       } else {
@@ -208,7 +230,7 @@ function WalletComponent() {
   };
 
   const handleDeposit = async () => {
-    if (!l1Account || !l2Account) {
+    if (!isL1Connected || !isL2Connected) {
       alert('Please complete L1 and L2 login first');
       return;
     }
@@ -218,7 +240,7 @@ function WalletComponent() {
         tokenIndex: 0,
         amount: 0.01,
         l1account: l1Account,
-        l2account: l2Account
+        l2account: l2account
       });
       console.log('Deposit successful!');
     } catch (error) {
@@ -226,19 +248,43 @@ function WalletComponent() {
     }
   };
 
+  const handleReset = async () => {
+    await reset(dispatch);
+  };
+
   return (
     <div>
+      {/* Connection State */}
+      <div>
+        <p>Connected: {isConnected ? 'Yes' : 'No'}</p>
+        <p>Address: {address || 'Not connected'}</p>
+        <p>Chain ID: {chainId || 'Unknown'}</p>
+        <p>Status: {status}</p>
+      </div>
+
+      {/* Connection Actions */}
       {!isConnected ? (
-        <button onClick={handleConnect}>
-          Connect Wallet
+        <button onClick={handleConnect} disabled={isL1Connecting}>
+          {isL1Connecting ? 'Connecting...' : 'Connect Wallet & Login L1'}
         </button>
       ) : (
         <div>
-          <p>Connected: {address}</p>
-          <p>Chain ID: {chainId}</p>
-          <button onClick={handleL2Login}>Login L2</button>
-          <button onClick={handleDeposit}>Deposit</button>
-          <button onClick={() => disconnect()}>Disconnect</button>
+          {/* L2 Login */}
+          {isL1Connected && !isL2Connected && (
+            <button onClick={handleL2Login} disabled={isL2Connecting}>
+              {isL2Connecting ? 'Logging in L2...' : 'Login L2'}
+            </button>
+          )}
+          
+          {/* Deposit */}
+          {isL1Connected && isL2Connected && (
+            <button onClick={handleDeposit} disabled={isDepositing}>
+              {isDepositing ? 'Depositing...' : 'Deposit'}
+            </button>
+          )}
+          
+          {/* Reset */}
+          <button onClick={handleReset}>Reset</button>
         </div>
       )}
     </div>
@@ -246,19 +292,21 @@ function WalletComponent() {
 }
 ```
 
-### RainbowKit Components
+### RainbowKit Components Integration
 
 ```tsx
 import React from 'react';
 import { 
   ConnectButton, 
-  useConnectModal, 
-  useAccount 
+  useConnectModal,
+  useConnection,
+  useWalletActions
 } from 'zkwasm-minirollup-browser';
 
 function RainbowKitDemo() {
   const { openConnectModal } = useConnectModal();
-  const { address, isConnected } = useAccount();
+  const { isConnected, address, chainId } = useConnection();
+  const { connectAndLoginL1 } = useWalletActions(address, chainId);
 
   return (
     <div>
@@ -270,8 +318,14 @@ function RainbowKitDemo() {
         Custom Connect Button
       </button>
       
+      {/* SDK wallet actions */}
       {isConnected && (
-        <p>Connected with: {address}</p>
+        <div>
+          <p>Connected with: {address}</p>
+          <button onClick={() => connectAndLoginL1(dispatch)}>
+            Login L1 Account
+          </button>
+        </div>
       )}
     </div>
   );
@@ -283,12 +337,14 @@ function RainbowKitDemo() {
 ### Redux State Structure
 
 ```typescript
+interface AccountState {
+  l1Account?: L1AccountInfo;
+  l2account?: L2AccountInfo;
+  status: 'Initial' | 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
+}
+
 interface RootState {
-  account: {
-    l1Account?: L1AccountInfo;
-    l2account?: L2AccountInfo;
-    status: 'Initial' | 'LoadingL1' | 'LoadingL2' | 'L1AccountError' | 'L2AccountError' | 'Deposit' | 'Ready';
-  };
+  account: AccountState;
 }
 ```
 
@@ -313,34 +369,36 @@ Ready → Deposit → Ready (deposit success/failure)
 - **`'Loading*'`**: Operation in progress
 - **`'*Error'`**: Operation failed, requires user action
 
-### Using Redux Selectors
+### Hook Usage Patterns
 
 ```tsx
-import { useSelector } from 'react-redux';
-import { selectL1Account, selectL2Account, selectLoginStatus } from 'zkwasm-minirollup-browser';
-
-function StatusComponent() {
-  const l1Account = useSelector(selectL1Account);
-  const l2Account = useSelector(selectL2Account);
-  const status = useSelector(selectLoginStatus);
-
-  // Derived status for UI
-  const isL1Connected = !!l1Account;
-  const isL2Connected = !!l2Account;
-  const isLoading = status.includes('Loading');
-  const hasError = status.includes('Error');
-  const isReady = status === 'Ready';
-
+// For components that only need connection state
+function ConnectionStatus() {
+  const { isConnected, address, chainId } = useConnection();
+  
   return (
     <div>
-      <p>L1 Account: {l1Account?.address || 'Not connected'}</p>
-      <p>L2 Account: {l2Account ? 'Connected' : 'Not connected'}</p>
-      <p>Status: {status}</p>
-      
-      {/* UI based on status */}
-      {isLoading && <div>Loading...</div>}
-      {hasError && <div>Error: {status}</div>}
-      {isReady && isL1Connected && <div>✅ Ready for operations</div>}
+      Status: {isConnected ? 'Connected' : 'Disconnected'}
+      Address: {address}
+      Chain: {chainId}
+    </div>
+  );
+}
+
+// For components that need wallet actions
+function WalletActions() {
+  const dispatch = useDispatch();
+  const { isConnected, address, chainId } = useConnection();
+  const { connectAndLoginL1, loginL2 } = useWalletActions(address, chainId);
+  
+  // Actions depend on connection state
+  const handleConnect = () => connectAndLoginL1(dispatch);
+  const handleL2Login = () => loginL2(dispatch, "MyApp");
+  
+  return (
+    <div>
+      <button onClick={handleConnect}>Connect L1</button>
+      <button onClick={handleL2Login}>Login L2</button>
     </div>
   );
 }
@@ -348,62 +406,55 @@ function StatusComponent() {
 
 ## 🛠️ Advanced Usage
 
-### Custom Provider Configuration
+### Environment Configuration
 
 ```tsx
 import { 
-  createDelphinusRainbowKitConfig, 
-  createDelphinusStore 
+  getEnvConfig,
+  validateEnvConfig,
+  setProviderConfig 
 } from 'zkwasm-minirollup-browser';
-import { polygon, arbitrum } from 'wagmi/chains';
 
-// Custom chain configuration
-const customConfig = createDelphinusRainbowKitConfig({
-  appName: "My Custom App",
-  projectId: "your-project-id",
-  chains: [polygon, arbitrum]
-});
-
-// Custom Redux store
-const customStore = createDelphinusStore({
-  // Add other reducers
-  ui: uiReducer,
-  data: dataReducer
-});
+function ConfiguredApp() {
+  React.useEffect(() => {
+    // Validate environment configuration
+    const validation = validateEnvConfig();
+    if (!validation.isValid) {
+      console.error('Configuration errors:', validation.errors);
+      return;
+    }
+    
+    // Get environment config
+    const config = getEnvConfig();
+    console.log('Environment config:', config);
+    
+    // Set provider configuration
+    setProviderConfig({ type: 'rainbow' });
+  }, []);
+  
+  return <YourApp />;
+}
 ```
 
-### Manual Setup (Advanced)
+### Direct Provider Usage
 
 ```tsx
-import React from 'react';
-import { 
-  WagmiProvider, 
-  QueryClientProvider, 
-  RainbowKitProvider,
-  Provider as ReduxProvider,
-  createDelphinusRainbowKitConfig,
-  createDelphinusStore,
-  delphinusQueryClient
-} from 'zkwasm-minirollup-browser';
+import { withProvider } from 'zkwasm-minirollup-browser';
 
-function Main() {
-  const wagmiConfig = createDelphinusRainbowKitConfig({
-    appName: "My zkWasm App"
+// Sign a message directly with provider
+const signMessage = async (message: string) => {
+  return await withProvider(async (provider) => {
+    return await provider.sign(message);
   });
-  const store = createDelphinusStore();
+};
 
-  return (
-    <WagmiProvider config={wagmiConfig}>
-      <QueryClientProvider client={delphinusQueryClient}>
-        <RainbowKitProvider>
-          <ReduxProvider store={store}>
-            <App />
-          </ReduxProvider>
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
-  );
-}
+// Get network information
+const getNetworkInfo = async () => {
+  return await withProvider(async (provider) => {
+    const networkId = await provider.getNetworkId();
+    return { networkId: networkId.toString() };
+  });
+};
 ```
 
 ### Error Handling
@@ -437,9 +488,9 @@ class ErrorBoundary extends React.Component {
 function App() {
   return (
     <ErrorBoundary>
-      <DelphinusProvider>
+      <DelphinusReactProvider>
         <YourApp />
-      </DelphinusProvider>
+      </DelphinusReactProvider>
     </ErrorBoundary>
   );
 }
@@ -487,7 +538,7 @@ const handleConnect = async () => {
 };
 
 // Monitor status changes for error handling
-const status = useSelector(selectLoginStatus);
+const { status } = useSelector((state: RootState) => state.account);
 React.useEffect(() => {
   if (status === 'L1AccountError') {
     console.log('L1 connection failed, please retry');
@@ -495,6 +546,19 @@ React.useEffect(() => {
     console.log('L2 login failed, please retry');
   }
 }, [status]);
+```
+
+#### Hook Dependencies
+```tsx
+// Always pass address and chainId to useWalletActions
+const { isConnected, address, chainId } = useConnection();
+const { connectAndLoginL1 } = useWalletActions(address, chainId); // Required dependencies
+
+// ❌ Wrong - Missing dependencies
+const { connectAndLoginL1 } = useWalletActions(); 
+
+// ✅ Correct - With dependencies
+const { connectAndLoginL1 } = useWalletActions(address, chainId);
 ```
 
 ## 📄 License

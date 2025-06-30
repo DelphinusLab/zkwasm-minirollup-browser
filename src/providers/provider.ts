@@ -12,14 +12,9 @@ import {
 } from "ethers";
 
 import { DelphinusContract } from "../contracts/client";
-import { getWalletConnectId } from '../config/env-adapter';
-
 // RainbowKit related imports
-import { connectorsForWallets } from '@rainbow-me/rainbowkit';
-import { metaMaskWallet, walletConnectWallet, coinbaseWallet } from '@rainbow-me/rainbowkit/wallets';
-import { createConfig, http } from 'wagmi';
-import { connect, disconnect, getAccount, getChainId, switchChain } from 'wagmi/actions';
-import { mainnet, sepolia, bsc, bscTestnet } from 'wagmi/chains';
+import { createConfig } from 'wagmi';
+import { connect, getAccount } from 'wagmi/actions';
 
 
 
@@ -305,7 +300,6 @@ export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProv
 class WagmiConfigManager {
   private static instance: WagmiConfigManager;
   private config: ReturnType<typeof createConfig> | null = null;
-  private isInitializing = false;
 
   private constructor() {}
 
@@ -325,7 +319,8 @@ class WagmiConfigManager {
   setSharedConfig(config: ReturnType<typeof createConfig>) {
     if (!this.config) {
       this.config = config;
-    }
+
+          }
   }
 
   // 检查是否已有配置
@@ -336,7 +331,6 @@ class WagmiConfigManager {
   // 清除配置（用于重置）
   clearConfig() {
     this.config = null;
-    this.isInitializing = false;
   }
 }
 
@@ -361,12 +355,36 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   private config: ReturnType<typeof createConfig> | null = null;
 
   constructor() {
+    // 临时使用window.ethereum创建初始provider，但会在initialize时重新创建正确的provider
     if (!window.ethereum) {
       throw new Error("No ethereum provider found");
     }
     super(new BrowserProvider(window.ethereum, "any"));
-    // 不在constructor中创建配置，而是延迟到需要时获取
     this.config = getSharedWagmiConfig();
+  }
+
+  // 从wagmi connector获取正确的provider
+  private async getCorrectProvider(): Promise<BrowserProvider> {
+    if (!this.config) {
+      throw new Error("No wagmi config available");
+    }
+
+    try {
+      const account = getAccount(this.config);
+      
+      if (account.connector) {
+        const provider = await account.connector.getProvider();
+        
+        if (provider) {
+          return new BrowserProvider(provider as Eip1193Provider, "any");
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to get provider from wagmi connector:', error);
+    }
+
+    // 如果无法从connector获取provider，回退到window.ethereum
+    return new BrowserProvider(window.ethereum, "any");
   }
 
   // Initialization method, needs to get data from RainbowKit hooks
@@ -375,9 +393,50 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       throw new Error("No account connected");
     }
 
+    // Ensure we have wagmi config
+    if (!this.config) {
+      this.config = getSharedWagmiConfig();
+      if (!this.config) {
+        throw new Error("No wagmi config available. Please ensure DelphinusProvider is used to wrap your app.");
+      }
+    }
+
+    // 重新创建正确的provider
+    try {
+      const correctProvider = await this.getCorrectProvider();
+      (this as any).provider = correctProvider;
+    } catch (error) {
+      console.warn('Failed to get correct provider, using existing provider:', error);
+    }
+
+    // 更新内部状态
     this.account = account;
     this.chainId = chainId;
-    this.signer = await this.provider.getSigner(account);
+    
+    // 获取当前活跃的signer
+    try {
+      this.signer = await this.provider.getSigner();
+      
+      // 验证signer的地址是否与期望地址匹配
+      const signerAddress = await this.signer.getAddress();
+      if (signerAddress.toLowerCase() !== account.toLowerCase()) {
+        console.warn('Signer address mismatch:', {
+          signerAddress,
+          expectedAddress: account
+        });
+      }
+    } catch (error) {
+      console.error('Failed to get signer during initialization:', error);
+      
+      // 重试一次
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        this.signer = await this.provider.getSigner();
+      } catch (retryError) {
+        console.error('Failed to get signer on retry:', retryError);
+        console.warn('Signer initialization failed, will retry when needed');
+      }
+    }
   }
 
     // Create genuine RainbowKit style connection modal
@@ -634,18 +693,41 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       return this.account;
     }
 
-    // Check if already connected
+    // Ensure we have wagmi config before attempting connection
+    if (!this.config) {
+      this.config = getSharedWagmiConfig();
+      if (!this.config) {
+        throw new Error("No wagmi config available. Please ensure DelphinusProvider is used to wrap your app.");
+      }
+    }
+
+    // Check if already connected using wagmi instead of direct provider calls
+    try {
+      const account = getAccount(this.config);
+      if (account.address && account.chainId) {
+        this.account = account.address;
+        this.chainId = account.chainId;
+        this.signer = await this.provider.getSigner(account.address);
+        return account.address;
+      }
+    } catch (error) {
+      // No existing connection found, proceed with manual connection
+      console.log('No existing wagmi connection found, proceeding with manual connection');
+    }
+
+    // Fallback: check browser provider directly
     try {
       const accounts = await this.provider.send("eth_accounts", []);
       if (accounts.length > 0) {
         const chainId = await this.provider.send("eth_chainId", []);
-         this.account = accounts[0];
-         this.chainId = parseInt(chainId, 16);
-         this.signer = await this.provider.getSigner(accounts[0]);
-         return accounts[0];
+        this.account = accounts[0];
+        this.chainId = parseInt(chainId, 16);
+        this.signer = await this.provider.getSigner(accounts[0]);
+        return accounts[0];
       }
     } catch (error) {
-      // No existing connection found
+      // No existing connection found via direct provider call
+      console.log('No existing provider connection found, showing connection modal');
     }
 
     // Show connection modal
@@ -690,9 +772,20 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   }
 
   async getJsonRpcSigner(): Promise<JsonRpcSigner> {
+    // 如果signer未初始化，尝试重新获取signer
     if (!this.signer) {
-      throw new Error("Signer not initialized");
+      try {
+        // 确保使用正确的provider
+        const correctProvider = await this.getCorrectProvider();
+        (this as any).provider = correctProvider;
+        
+        this.signer = await this.provider.getSigner();
+      } catch (error) {
+        console.error('Failed to get current signer:', error);
+        throw new Error(`Failed to initialize signer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
+    
     return this.signer;
   }
 
@@ -728,12 +821,23 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   }
 
   async sign(message: string): Promise<string> {
+    // 如果signer未初始化，尝试重新获取signer
     if (!this.signer) {
-      throw new Error("Signer not initialized");
+      try {
+        // 确保使用正确的provider
+        const correctProvider = await this.getCorrectProvider();
+        (this as any).provider = correctProvider;
+        
+        this.signer = await this.provider.getSigner();
+      } catch (error) {
+        console.error('Failed to get current signer:', error);
+        throw new Error(`Failed to initialize signer: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
     
     try {
-      return await this.signer.signMessage(message);
+      const signature = await this.signer.signMessage(message);
+      return signature;
     } catch (error) {
       console.error('Signature failed:', error);
       throw error;

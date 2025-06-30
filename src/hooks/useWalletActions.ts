@@ -38,6 +38,9 @@ export function useWalletActions(
       // 设置为加载状态
       dispatch(loginL1AccountAsync.pending('', undefined));
       
+      // 清除provider实例，确保使用最新的钱包状态
+      clearProviderInstance();
+      
       // 初始化 Provider
       await initializeRainbowProviderIfNeeded(address, chainId);
       
@@ -74,7 +77,7 @@ export function useWalletActions(
       // 设置为加载状态
       dispatch(loginL2AccountAsync.pending('', appName));
       
-      // 初始化 Provider
+      // 确保provider使用最新状态
       await initializeRainbowProviderIfNeeded(address, chainId);
       
       const result = await withProvider(async (provider) => {

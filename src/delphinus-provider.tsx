@@ -25,7 +25,6 @@ export function createDelphinusRainbowKitConfig(options?: {
 
   // Get configuration from environment variables
   const envConfig = getEnvConfig();
-  console.log('Creating RainbowKit config with env:', envConfig);
   
   // Select chains based on chainId from environment variables
   const getChains = (): readonly [Chain, ...Chain[]] => {
@@ -58,10 +57,13 @@ export function createDelphinusRainbowKitConfig(options?: {
     }
   };
 
+  const selectedChains = getChains();
+  const projectId = options?.projectId || envConfig.walletConnectId || 'YOUR_PROJECT_ID';
+
   cachedConfig = getDefaultConfig({
     appName: options?.appName || 'Delphinus zkWasm MiniRollup',
-    projectId: options?.projectId || envConfig.walletConnectId || 'YOUR_PROJECT_ID',
-    chains: getChains(),
+    projectId: projectId,
+    chains: selectedChains,
   });
 
   // 将配置设置为全局共享配置，供其他组件使用
@@ -183,6 +185,8 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
     projectId,
     chains,
   });
+
+
 
   return (
     <WagmiProvider config={config}>
