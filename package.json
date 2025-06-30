@@ -39,8 +39,8 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "npx tsc",
     "postinstall": "npm run build",
+    "build": "npx tsc --project ./tsconfig.json",
     "dev:example": "npm run dev --workspace=example",
     "install:example": "npm install --workspace=example",
     "clean": "rm -rf dist && find src -name '*.js' -delete && find src -name '*.d.ts' -delete && find src -name '*.js.map' -delete",
