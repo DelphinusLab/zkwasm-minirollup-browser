@@ -31,7 +31,7 @@ export function useWalletContext(): WalletContextType {
   const { isConnected, address, chainId } = useConnection();
   
   // 获取钱包操作方法
-  const { connectAndLoginL1, loginL2, disconnect: disconnectWallet } = useWalletActions(address, chainId);
+  const { connectAndLoginL1, loginL2, reset } = useWalletActions(address, chainId);
   
   // 获取Redux状态
   const { l1Account, l2account } = useSelector((state: RootState) => state.account);
@@ -64,8 +64,8 @@ export function useWalletContext(): WalletContextType {
   
   // 断开连接方法
   const disconnect = useCallback(() => {
-    disconnectWallet();
-  }, [disconnectWallet]);
+    reset(dispatch);
+  }, [reset, dispatch]);
   
   // 设置playerId方法 - 通过重新创建L2账户来实现
   const setPlayerId = useCallback((id: [string, string]) => {
