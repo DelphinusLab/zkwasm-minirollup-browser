@@ -1,3 +1,4 @@
+import '@rainbow-me/rainbowkit/styles.css';
 import React from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
