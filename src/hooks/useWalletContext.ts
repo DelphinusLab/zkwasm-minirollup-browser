@@ -1,8 +1,10 @@
 import { useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useDisconnect } from 'wagmi';
 import { useConnection } from './useConnection';
 import { useWalletActions } from './useWalletActions';
 import { depositAsync } from '../store/thunks';
+import { resetAccountState } from '../store/account-slice';
 import type { RootState, AppDispatch } from '../types';
 
 export interface WalletContextType {
@@ -30,8 +32,11 @@ export function useWalletContext(): WalletContextType {
   // 获取连接状态
   const { isConnected, address, chainId } = useConnection();
   
+  // 获取 wagmi disconnect 功能
+  const { disconnect: wagmiDisconnect } = useDisconnect();
+  
   // 获取钱包操作方法
-  const { connectAndLoginL1, loginL2, reset } = useWalletActions(address, chainId);
+  const { connectAndLoginL1, loginL2 } = useWalletActions(address, chainId);
   
   // 获取Redux状态
   const { l1Account, l2account } = useSelector((state: RootState) => state.account);
@@ -64,8 +69,12 @@ export function useWalletContext(): WalletContextType {
   
   // 断开连接方法
   const disconnect = useCallback(() => {
-    reset(dispatch);
-  }, [reset, dispatch]);
+    // 先断开 wagmi 连接
+    wagmiDisconnect();
+    
+    // 然后清除 Redux 状态
+    dispatch(resetAccountState());
+  }, [wagmiDisconnect, dispatch]);
   
   // 设置playerId方法 - 通过重新创建L2账户来实现
   const setPlayerId = useCallback((id: [string, string]) => {
