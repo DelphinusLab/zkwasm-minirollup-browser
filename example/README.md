@@ -340,6 +340,7 @@ interface WalletContextType {
   connectL2: () => Promise<void>;
   disconnect: () => void;
   setPlayerId: (id: [string, string]) => void;
+  deposit: (params: { tokenIndex: number; amount: number }) => Promise<void>;
 }
 
 // Advanced users can still access Redux state directly
@@ -481,37 +482,46 @@ function WalletErrorBoundary({ children }) {
 ### Mixing Unified Context with Advanced Hooks
 
 ```typescript
-// Use unified context for most functionality, advanced hooks for special cases
+// Use unified context for most functionality, with simplified deposit
 function HybridWalletComponent() {
   const dispatch = useDispatch();
   
-  // Unified context for most functionality
+  // ✨ NEW: Unified context now includes deposit method
   const {
     isConnected, isL2Connected, l1Account, l2Account, playerId,
-    address, chainId, connectL1, connectL2, disconnect
+    address, chainId, connectL1, connectL2, disconnect, deposit
   } = useWalletContext();
   
-  // Advanced hooks for special operations requiring dispatch
-  const { deposit, reset } = useWalletActions(address, chainId);
+  // Advanced hooks only needed for special operations like reset
+  const { reset } = useWalletActions(address, chainId);
   
   // Direct Redux state for status monitoring
   const { status } = useSelector((state: RootState) => state.account);
 
+  // ✨ NEW: Simplified deposit - no need for dispatch or account parameters
   const handleDeposit = async () => {
-    if (!isL2Connected) {
-      alert('Please connect L2 first');
+    if (!isConnected || !isL2Connected) {
+      alert('Please connect both L1 and L2 accounts first');
       return;
     }
 
     try {
-      await deposit(dispatch, {
+      await deposit({
         tokenIndex: 0,
-        amount: 0.01,
-        l1account: l1Account,
-        l2account: l2Account
+        amount: 0.01
       });
+      alert('Deposit successful!');
     } catch (error) {
       console.error('Deposit failed:', error);
+      alert(`Deposit failed: ${error.message}`);
+    }
+  };
+
+  const handleReset = async () => {
+    try {
+      await reset(dispatch);
+    } catch (error) {
+      console.error('Reset failed:', error);
     }
   };
 
@@ -523,8 +533,11 @@ function HybridWalletComponent() {
       
       <button onClick={connectL1}>Connect L1</button>
       <button onClick={connectL2}>Connect L2</button>
-      <button onClick={handleDeposit}>Deposit</button>
+      <button onClick={handleDeposit} disabled={!isConnected || !isL2Connected}>
+        Deposit 0.01 ETH
+      </button>
       <button onClick={disconnect}>Disconnect</button>
+      <button onClick={handleReset}>Reset</button>
     </div>
   );
 }

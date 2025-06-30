@@ -70,7 +70,7 @@ The SDK uses a unified wallet context approach for optimal developer experience:
 │  │  • All wallet states and actions in one hook           │ │
 │  │  • isConnected, isL2Connected, l1Account, l2Account    │ │
 │  │  • playerId (PID array), address, chainId              │ │
-│  │  • connectL1, connectL2, disconnect, setPlayerId       │ │
+│  │  • connectL1, connectL2, disconnect, deposit           │ │
 │  └─────────────────────────────────────────────────────────┘ │
 ├─────────────────────────────────────────────────────────────┤
 │                    Advanced Hooks (Optional)                │
@@ -202,6 +202,7 @@ function WalletComponent() {
     connectL2,          // connect L2 account
     disconnect,         // disconnect wallet
     setPlayerId,        // PID setter (derived from L2 account)
+    deposit,            // deposit tokens to L2
   } = useWalletContext();
   
   // Access L2 account methods directly
@@ -209,6 +210,25 @@ function WalletComponent() {
     if (l2Account) {
       const serialized = l2Account.toSerializableData();
       console.log('Serialized L2 account:', serialized);
+    }
+  };
+  
+  // Handle deposit using unified context
+  const handleDeposit = async () => {
+    if (!isConnected || !isL2Connected) {
+      alert('Please connect both L1 and L2 accounts first');
+      return;
+    }
+    
+    try {
+      await deposit({
+        tokenIndex: 0,
+        amount: 0.01
+      });
+      alert('Deposit successful!');
+    } catch (error) {
+      console.error('Deposit failed:', error);
+      alert(`Deposit failed: ${error.message}`);
     }
   };
   
@@ -231,6 +251,10 @@ function WalletComponent() {
           <div>
             {!isL2Connected && (
               <button onClick={connectL2}>Connect L2 Account</button>
+            )}
+            
+            {isL2Connected && (
+              <button onClick={handleDeposit}>Deposit 0.01 ETH</button>
             )}
             
             <button onClick={disconnect}>Disconnect</button>
