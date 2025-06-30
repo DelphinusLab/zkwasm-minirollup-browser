@@ -6,10 +6,6 @@ import type { AppDispatch } from '../types';
 /**
  * 主要的 zkWasm 钱包 Hook
  * 整合连接状态管理和钱包操作功能
- * 
- * @deprecated 为了保持向后兼容性，建议使用拆分后的 hooks:
- * - useConnection() 用于连接状态
- * - useWalletActions() 用于钱包操作
  */
 export function useZkWasmWallet() {
   // 使用连接状态管理 hook
