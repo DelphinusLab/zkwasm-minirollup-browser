@@ -70,8 +70,11 @@ export function createZkWasmWalletHook(wagmiHooks: {
       return dispatch(connectWalletAndLoginL1WithHooksAsync(rainbowKitHooks));
     };
 
-    const loginL2 = (dispatch: any, appName: string = "0xAUTOMATA") => {
-      return dispatch(loginL2AccountAsync(appName));
+    const loginL2 = (dispatch: any, messageToSign: string) => {
+      if (!messageToSign) {
+        throw new Error('messageToSign is required for L2 login');
+      }
+      return dispatch(loginL2AccountAsync(messageToSign));
     };
 
     const deposit = (dispatch: any, params: {

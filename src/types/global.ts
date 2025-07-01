@@ -1,7 +1,7 @@
 import { Dispatch } from '@reduxjs/toolkit';
 import { AccountState } from './account';
 
-// Redux相关类型
+// Redux related types
 export interface RootState {
   account: AccountState;
 }
@@ -16,17 +16,17 @@ export interface EthereumProvider {
   isMetaMask?: boolean;
 }
 
-// 窗口全局类型 (统一声明)
+// Window global types (unified declaration)
 declare global {
   interface Window {
-    ethereum?: any; // 保持 any 类型以避免冲突，具体使用时进行类型断言
+    ethereum?: any; // Keep any type to avoid conflicts, use type assertion when specifically used
     ENV?: Record<string, string>;
     APP_CONFIG?: Record<string, any>;
     __ENV__?: Record<string, string>;
   }
 }
 
-// Wagmi 相关类型 (避免使用 any)
+// Wagmi related types (avoid using any)
 export interface WagmiAccountResult {
   address?: string;
   isConnected: boolean;
@@ -48,7 +48,7 @@ export interface WagmiHookTypes {
   useConnectModal?: () => { openConnectModal?: () => void };
 }
 
-// RPC 响应类型
+// RPC response types
 export interface RpcResponse<T = any> {
   data: T;
   status?: number;
@@ -67,7 +67,7 @@ export interface StateResponse {
   state: any;
 }
 
-// 错误类型
+// Error types
 export interface ApiError {
   response?: {
     status: number;

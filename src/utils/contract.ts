@@ -8,8 +8,8 @@ import { L1AccountInfo, SerializableTransactionReceipt } from '../types';
 import { L2AccountInfo } from '../models/L2AccountInfo';
 
 /**
- * 获取合约地址配置
- * @returns 合约地址配置
+ * Get contract address configuration
+ * @returns Contract address configuration
  */
 export function getContractAddresses() {
   const envConfig = getEnvConfig();
@@ -24,12 +24,12 @@ export function getContractAddresses() {
 }
 
 /**
- * 检查并执行代币授权
- * @param provider - Provider 实例
- * @param tokenAddr - 代币合约地址
- * @param proxyAddr - 代理合约地址
- * @param l1account - L1账户信息
- * @param amountWei - 需要授权的金额（Wei单位）
+ * Check and execute token approval
+ * @param provider - Provider instance
+ * @param tokenAddr - Token contract address
+ * @param proxyAddr - Proxy contract address
+ * @param l1account - L1 account information
+ * @param amountWei - Amount to approve (in Wei)
  */
 export async function checkAndApproveToken(
   provider: DelphinusProvider,
@@ -38,15 +38,15 @@ export async function checkAndApproveToken(
   l1account: L1AccountInfo,
   amountWei: any
 ): Promise<void> {
-  // 获取合约实例
+  // Get contract instance
   const tokenContract = await provider.getContractWithSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
   const tokenContractReader = provider.getContractWithoutSigner(tokenAddr, JSON.stringify(contractABI.tokenABI));
   
-  // 检查余额和授权额度
+  // Check balance and allowance
   const balanceEthers = await tokenContractReader.getEthersContract().balanceOf(l1account.address);
   const allowanceEthers = await tokenContractReader.getEthersContract().allowance(l1account.address, proxyAddr);
   
-  // 转换为 BN.js 格式以便比较
+  // Convert to BN.js format for comparison
   const balance = new BN(balanceEthers.toString());
   const allowance = new BN(allowanceEthers.toString());
   
@@ -54,7 +54,7 @@ export async function checkAndApproveToken(
   console.log("Token allowance:", allowance.toString());
   console.log("Required amount:", amountWei.toString());
   
-  // 如果授权不足，先进行授权
+  // If allowance is insufficient, approve first
   if (allowance.lt(amountWei)) {
     console.log("Need to approve, current allowance insufficient");
     
@@ -74,10 +74,10 @@ export async function checkAndApproveToken(
 }
 
 /**
- * 执行存款交易
- * @param provider - Provider 实例
- * @param params - 存款参数
- * @returns 交易收据
+ * Execute deposit transaction
+ * @param provider - Provider instance
+ * @param params - Deposit parameters
+ * @returns Transaction receipt
  */
 export async function executeDeposit(
   provider: DelphinusProvider,
@@ -90,17 +90,17 @@ export async function executeDeposit(
 ): Promise<SerializableTransactionReceipt> {
   const { proxyAddr, tokenAddr } = getContractAddresses();
   
-  // 计算金额和PID
+  // Calculate amount and PID
   const amountWei = toWei(params.amount);
   const pkeyArray = calculatePidArray(params.l2account.pubkey);
   
   console.log('Deposit: contract addresses', { proxyAddr, tokenAddr });
   console.log('Deposit: amount in wei:', amountWei.toString());
   
-  // 检查并授权代币
+  // Check and approve token
   await checkAndApproveToken(provider, tokenAddr, proxyAddr, params.l1account, amountWei);
   
-  // 执行存款交易
+  // Execute deposit transaction
   const proxyContract = await provider.getContractWithSigner(proxyAddr, JSON.stringify(contractABI.proxyABI));
   
   console.log("Calling topup function with params:", {

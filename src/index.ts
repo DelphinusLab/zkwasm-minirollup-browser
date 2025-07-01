@@ -96,7 +96,7 @@ export {
   useConnection,
   useWalletActions,
 } from './hooks';
-
+  
 // Account state type
 export {
   type AccountState,
@@ -117,6 +117,9 @@ import {
 } from 'zkwasm-minirollup-browser';
 
 // In main.tsx
+// ⚠️ IMPORTANT: appName is used for L2 login signatures!
+// Users will sign this message to generate their L2 account.
+// Keep it unique and consistent for your app.
 <DelphinusReactProvider appName="Your App">
   <App />
 </DelphinusReactProvider>
@@ -132,7 +135,7 @@ function WalletComponent() {
     address,            // wallet address
     chainId,            // current chain ID
     connectL1,          // connect L1 wallet
-    connectL2,          // connect L2 account
+    connectL2,          // connect L2 account (signs appName)
     disconnect,         // disconnect wallet
     setPlayerId,        // PID setter (derived from L2 account)
   } = useWalletContext();
@@ -151,7 +154,7 @@ function WalletComponent() {
       <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
       <p>Address: {address}</p>
       <button onClick={connectL1}>Connect L1</button>
-      <button onClick={connectL2}>Connect L2</button>
+      <button onClick={connectL2}>Connect L2 (Sign "{appName}")</button>
       <button onClick={handleSerialize}>Serialize L2 Account</button>
     </div>
   );
@@ -175,5 +178,11 @@ Environment Configuration:
 - Uses dotenv to automatically load .env files
 - All variables use REACT_APP_ prefix
 - Create .env file with: REACT_APP_CHAIN_ID, REACT_APP_DEPOSIT_CONTRACT, etc.
+
+L2 Login Signing:
+- appName parameter is the message users sign for L2 account generation
+- Same appName = same L2 account for a user
+- Different appName = different L2 account for the same user
+- Choose your appName carefully and keep it consistent!
 */
 

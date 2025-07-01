@@ -1,5 +1,5 @@
 import '@rainbow-me/rainbowkit/styles.css';
-import React from 'react';
+import React, { createContext, useContext } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
@@ -14,11 +14,16 @@ import { setSharedWagmiConfig } from './providers/provider';
 let cachedConfig: any = null;
 
 // Simplified RainbowKit configuration function
-export function createDelphinusRainbowKitConfig(options?: {
-  appName?: string;
+export function createDelphinusRainbowKitConfig(options: {
+  appName: string; // Required parameter
   projectId?: string;
   chains?: readonly [Chain, ...Chain[]];
 }) {
+  // Validate required parameters
+  if (!options.appName || options.appName.trim().length === 0) {
+    throw new Error('createDelphinusRainbowKitConfig: appName is required for L2 login and cannot be empty');
+  }
+
   // If cached configuration exists, return directly
   if (cachedConfig) {
     return cachedConfig;
@@ -62,12 +67,12 @@ export function createDelphinusRainbowKitConfig(options?: {
   const projectId = options?.projectId || envConfig.walletConnectId || 'YOUR_PROJECT_ID';
 
   cachedConfig = getDefaultConfig({
-    appName: options?.appName || 'Delphinus zkWasm MiniRollup',
+    appName: options.appName, // Use provided appName directly, no default value
     projectId: projectId,
     chains: selectedChains,
   });
 
-  // 将配置设置为全局共享配置，供其他组件使用
+  // Set configuration as global shared configuration for other components to use
   setSharedWagmiConfig(cachedConfig);
 
   return cachedConfig;
@@ -77,7 +82,6 @@ export function createDelphinusRainbowKitConfig(options?: {
 export function resetDelphinusConfig() {
   cachedConfig = null;
   defaultStore = null;
-  // 同时清除共享配置
   const { WagmiConfigManager } = require('./providers/provider');
   WagmiConfigManager.getInstance().clearConfig();
 }
@@ -104,23 +108,23 @@ function getDefaultStore() {
       middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
           serializableCheck: {
-            // 忽略包含非序列化数据的 actions
+            // Ignore actions containing non-serializable data
             ignoredActions: [
               'persist/PERSIST', 
               'persist/REHYDRATE',
-              // L2 账户相关 actions
+              // L2 account related actions
               'account/deriveL2Account/pending',
               'account/deriveL2Account/fulfilled',
               'account/deriveL2Account/rejected',
-              // L1 账户相关 actions
+              // L1 account related actions
               'account/fetchAccount/pending',
               'account/fetchAccount/fulfilled', 
               'account/fetchAccount/rejected',
-              // 存款相关 actions
+              // Deposit related actions
               'account/deposit/pending',
               'account/deposit/fulfilled',
               'account/deposit/rejected',
-              // 连接相关 actions
+              // Connection related actions
               'account/connectAndLoginL1/pending',
               'account/connectAndLoginL1/fulfilled',
               'account/connectAndLoginL1/rejected',
@@ -131,7 +135,7 @@ function getDefaultStore() {
               'account/setL1Account',
               'account/resetAccountState',
             ],
-            // 忽略 action 中的特定路径
+            // Ignore specific paths in actions
             ignoredActionsPaths: [
               'payload', 
               'meta.arg', 
@@ -140,17 +144,17 @@ function getDefaultStore() {
               'meta.arg.l2account',
               'meta.arg.l1account'
             ],
-            // 忽略 state 中的特定路径
+            // Ignore specific paths in state
             ignoredPaths: [
               'account.l2account',
               'account.l1Account'
             ],
-            // 忽略嵌套值检查
+            // Ignore nested value checks
             ignoredNestedPaths: [
               'account.l2account.pubkey',
               'account.l2account.#prikey'
             ],
-            // 完全禁用序列化检查 (最宽松的选项)
+            // Completely disable serialization check (most lenient option)
             warnAfter: 128,
           },
         }),
@@ -162,7 +166,19 @@ function getDefaultStore() {
 // Unified Provider component configuration interface
 export interface DelphinusProviderProps {
   children: React.ReactNode;
-  appName?: string;
+  /**
+   * Application name - used for L2 login signatures
+   * 
+   * ⚠️ Important Notice:
+   * - This parameter is not just a display name, it is the signature message content for L2 account login
+   * - Users will sign this message when connecting L2 account to generate L2 private key
+   * - Same appName will generate the same L2 account for the same user
+   * - Different appName will generate different L2 accounts for the same user
+   * - Please choose a unique and stable application name, avoid frequent changes
+   * 
+   * @example "MyDApp v1.0", "GameXYZ Mainnet", "MyApp Production"
+   */
+  appName: string;
   projectId?: string;
   chains?: readonly [Chain, ...Chain[]];
   queryClient?: QueryClient;
@@ -170,16 +186,33 @@ export interface DelphinusProviderProps {
   wagmiConfig?: any;
 }
 
+// Create Delphinus Context to pass configuration information
+interface DelphinusContextType {
+  appName: string;
+}
+
+const DelphinusContext = createContext<DelphinusContextType>({
+  appName: ''
+});
+
+// Export hook to get context
+export const useDelphinusContext = () => useContext(DelphinusContext);
+
 // Unified Delphinus Provider component
 export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
   children,
-  appName = 'Delphinus zkWasm MiniRollup',
+  appName,
   projectId,
   chains,
   queryClient = defaultQueryClient,
   store = getDefaultStore(),
   wagmiConfig,
 }) => {
+  // Validate required parameters
+  if (!appName || appName.trim().length === 0) {
+    throw new Error('DelphinusProvider: appName is required and cannot be empty');
+  }
+
   // Create or use provided wagmi configuration
   const config = wagmiConfig || createDelphinusRainbowKitConfig({
     appName,
@@ -187,14 +220,14 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
     chains,
   });
 
-
-
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
           <ReduxProvider store={store}>
-            {children}
+            <DelphinusContext.Provider value={{ appName }}>
+              {children}
+            </DelphinusContext.Provider>
           </ReduxProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
@@ -212,23 +245,23 @@ export function createDelphinusStore(additionalReducers?: any) {
     middleware: (getDefaultMiddleware) =>
       getDefaultMiddleware({
         serializableCheck: {
-          // 忽略包含非序列化数据的 actions
+          // Ignore actions containing non-serializable data
           ignoredActions: [
             'persist/PERSIST', 
             'persist/REHYDRATE',
-            // L2 账户相关 actions
+            // L2 account related actions
             'account/deriveL2Account/pending',
             'account/deriveL2Account/fulfilled',
             'account/deriveL2Account/rejected',
-            // L1 账户相关 actions
+            // L1 account related actions
             'account/fetchAccount/pending',
             'account/fetchAccount/fulfilled', 
             'account/fetchAccount/rejected',
-            // 存款相关 actions
+            // Deposit related actions
             'account/deposit/pending',
             'account/deposit/fulfilled',
             'account/deposit/rejected',
-            // 连接相关 actions
+            // Connection related actions
             'account/connectAndLoginL1/pending',
             'account/connectAndLoginL1/fulfilled',
             'account/connectAndLoginL1/rejected',
@@ -239,7 +272,7 @@ export function createDelphinusStore(additionalReducers?: any) {
             'account/setL1Account',
             'account/resetAccountState',
           ],
-          // 忽略 action 中的特定路径
+          // Ignore specific paths in actions
           ignoredActionsPaths: [
             'payload', 
             'meta.arg', 
@@ -248,17 +281,17 @@ export function createDelphinusStore(additionalReducers?: any) {
             'meta.arg.l2account',
             'meta.arg.l1account'
           ],
-          // 忽略 state 中的特定路径
+          // Ignore specific paths in state
           ignoredPaths: [
             'account.l2account',
             'account.l1Account'
           ],
-          // 忽略嵌套值检查
+          // Ignore nested value checks
           ignoredNestedPaths: [
             'account.l2account.pubkey',
             'account.l2account.#prikey'
           ],
-          // 完全禁用序列化检查 (最宽松的选项)
+          // Completely disable serialization check (most lenient option)
           warnAfter: 128,
         },
       }),

@@ -3,13 +3,13 @@ import { bnToHexLe } from 'delphinus-curves/src/altjubjub';
 import { LeHexBN } from 'zkwasm-minirollup-rpc';
 import { NUMERIC_CONSTANTS } from './constants';
 
-// 常用的数值常量
+// Common numeric constants
 export const WEI_MULTIPLIER = new BN("10").pow(new BN(NUMERIC_CONSTANTS.DECIMALS));
 
 /**
- * 将数值转换为 Wei 单位
- * @param amount - 原始数值
- * @returns BN - Wei 单位的数值
+ * Convert number to Wei unit
+ * @param amount - Original number
+ * @returns BN - Number in Wei unit
  */
 export function toWei(amount: number | string | BN): BN {
   const amountBN = new BN(amount);
@@ -17,18 +17,18 @@ export function toWei(amount: number | string | BN): BN {
 }
 
 /**
- * 将 Wei 转换为 Ether 单位
- * @param weiAmount - Wei 单位的数值
- * @returns BN - Ether 单位的数值
+ * Convert Wei to Ether unit
+ * @param weiAmount - Number in Wei unit
+ * @returns BN - Number in Ether unit
  */
 export function fromWei(weiAmount: BN): BN {
   return weiAmount.div(WEI_MULTIPLIER);
 }
 
 /**
- * 计算 L2 账户的 PID 数组
- * @param pubkey - 公钥
- * @returns 计算后的 PID 数组
+ * Calculate L2 account PID array
+ * @param pubkey - Public key
+ * @returns Calculated PID array
  */
 export function calculatePidArray(pubkey: BN) {
   const leHexBN = new LeHexBN(bnToHexLe(pubkey));
@@ -36,10 +36,10 @@ export function calculatePidArray(pubkey: BN) {
 }
 
 /**
- * 格式化余额显示
- * @param balance - 余额（Wei 单位）
- * @param decimals - 小数位数
- * @returns 格式化后的字符串
+ * Format balance display
+ * @param balance - Balance (in Wei unit)
+ * @param decimals - Number of decimal places
+ * @returns Formatted string
  */
 export function formatBalance(balance: BN, decimals: number = 4): string {
   const etherBalance = fromWei(balance);
@@ -49,14 +49,14 @@ export function formatBalance(balance: BN, decimals: number = 4): string {
 }
 
 /**
- * 检查余额是否充足
- * @param balance - 当前余额
- * @param required - 需要的数量
+ * Check if balance is sufficient
+ * @param balance - Current balance
+ * @param required - Required amount
  * @returns boolean
  */
 export function hasSufficientBalance(balance: BN, required: BN): boolean {
   return balance.gte(required);
 }
 
-// 重新导出常用的加密库
+// Re-export common crypto libraries
 export { BN, bnToHexLe, LeHexBN }; 

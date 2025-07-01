@@ -15,7 +15,7 @@ import type { L1AccountInfo, AppDispatch, SerializableTransactionReceipt } from 
 
 interface WalletActionsHookReturn {
   connectAndLoginL1: (dispatch: AppDispatch) => Promise<L1AccountInfo>;
-  loginL2: (dispatch: AppDispatch, appName?: string) => Promise<L2AccountInfo>;
+  loginL2: (dispatch: AppDispatch, messageToSign: string) => Promise<L2AccountInfo>;
   deposit: (dispatch: AppDispatch, params: DepositParams) => Promise<SerializableTransactionReceipt>;
   disconnect: () => Promise<void>;
   reset: (dispatch: AppDispatch) => Promise<void>;
@@ -28,6 +28,19 @@ export interface DepositParams {
   l1account: L1AccountInfo;
 }
 
+export interface WalletActionsType {
+  isConnected: boolean;
+  address: string | undefined;
+  chainId: number | undefined;
+  connectAndLoginL1: (dispatch: AppDispatch) => Promise<L1AccountInfo>;
+  loginL2: (dispatch: AppDispatch, messageToSign: string) => Promise<L2AccountInfo>;
+  deposit: (
+    dispatch: AppDispatch,
+    params: { tokenIndex: number; amount: number; l2account: L2AccountInfo; l1account: L1AccountInfo }
+  ) => Promise<any>;
+  reset: (dispatch: AppDispatch) => void;
+}
+
 export function useWalletActions(
   address?: string,
   chainId?: number
@@ -35,20 +48,20 @@ export function useWalletActions(
 
   const connectAndLoginL1 = useCallback(async (dispatch: AppDispatch) => {
     try {
-      // 设置为加载状态
+      // Set to loading state
       dispatch(loginL1AccountAsync.pending('', undefined));
       
-      // 清除provider实例，确保使用最新的钱包状态
+      // Clear provider instance to ensure using latest wallet state
       clearProviderInstance();
       
-      // 初始化 Provider
+      // Initialize Provider
       await initializeRainbowProviderIfNeeded(address, chainId);
       
       const result = await withProvider(async (provider) => {
-        // 验证并切换网络
+        // Validate and switch network
         await validateAndSwitchNetwork(provider);
         
-        // 获取账户地址
+        // Get account address
         const connectedAddress = await provider.connect();
         const networkId = await provider.getNetworkId();
         
@@ -58,7 +71,12 @@ export function useWalletActions(
         };
       });
       
-      // 使用 setL1Account action 而不是 fulfilled，避免状态设置为 LoadingL2
+      // Get account address
+      if (!result || !result.address) {
+        throw createError(ERROR_MESSAGES.NO_ACCOUNT, 'NO_ACCOUNT');
+      }
+      
+      // Use setL1Account action instead of fulfilled to avoid setting state to LoadingL2
       dispatch(setL1Account(result));
       return result;
     } catch (error) {
@@ -68,34 +86,44 @@ export function useWalletActions(
     }
   }, [address, chainId]);
 
-  const loginL2 = useCallback(async (dispatch: AppDispatch, appName: string = "0xAUTOMATA") => {
+  /**
+   * L2 Account Login
+   * @param dispatch Redux dispatch function
+   * @param messageToSign Message content to sign, usually application name (required parameter)
+   * @returns Promise<L2AccountInfo>
+   */
+  const loginL2 = useCallback(async (dispatch: AppDispatch, messageToSign: string) => {
+    if (!messageToSign) {
+      throw new Error('messageToSign is required for L2 login');
+    }
+    
     if (!address) {
       throw createError(ERROR_MESSAGES.NO_WALLET, 'NO_WALLET');
     }
 
     try {
-      // 设置为加载状态
-      dispatch(loginL2AccountAsync.pending('', appName));
+      // Set to loading state
+      dispatch(loginL2AccountAsync.pending('', messageToSign));
       
-      // 确保provider使用最新状态
+      // Ensure provider uses latest state
       await initializeRainbowProviderIfNeeded(address, chainId);
       
       const result = await withProvider(async (provider) => {
-        // 使用 provider 签名 - 注意：应该签名 appName，不是地址
-        const signature = await provider.sign(appName);
+        // Use provider to sign - Note: should sign messageToSign, not address
+        const signature = await provider.sign(messageToSign);
         
-        // 创建 L2 账户 - 使用签名的前34个字符（包括0x前缀）
+        // Create L2 account - use first 34 characters of signature (including 0x prefix)
         const l2Account = new L2AccountInfo(signature.substring(0, 34));
         
         return l2Account;
       });
       
-      // 更新 Redux 状态
-      dispatch(loginL2AccountAsync.fulfilled(result, '', appName));
+      // Update Redux state
+      dispatch(loginL2AccountAsync.fulfilled(result, '', messageToSign));
       return result;
     } catch (error) {
       console.error('L2 login failed:', error);
-      dispatch(loginL2AccountAsync.rejected(error as any, '', appName));
+      dispatch(loginL2AccountAsync.rejected(error as any, '', messageToSign));
       throw error;
     }
   }, [address, chainId]);
@@ -108,14 +136,14 @@ export function useWalletActions(
     try {
       dispatch(depositAsync.pending('', params));
       
-      // 初始化 Provider
+      // Initialize Provider
       await initializeRainbowProviderIfNeeded(address, chainId);
       
       const result = await withProvider(async (provider) => {
-        // 验证并切换网络
+        // Validate and switch network
         await validateAndSwitchNetwork(provider);
         
-        // 执行存款操作（使用统一的工具函数）
+        // Execute deposit operation (using unified utility function)
         return await executeDeposit(provider, params);
       });
       
@@ -130,7 +158,7 @@ export function useWalletActions(
 
   const disconnect = useCallback(async () => {
     try {
-      // 只清除 provider 实例但保留配置以供重新连接
+      // Only clear provider instance but keep configuration for reconnection
       clearProviderInstance();
       
       // Provider disconnected successfully

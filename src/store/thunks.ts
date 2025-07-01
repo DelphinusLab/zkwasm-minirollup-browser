@@ -14,8 +14,8 @@ export const loginL1AccountAsync = createAsyncThunk(
 
 export const loginL2AccountAsync = createAsyncThunk(
   'account/deriveL2Account',
-  async (appName: string, _thunkApi) => {
-    const l2account = await loginL2Account(appName);
+  async (messageToSign: string, _thunkApi) => {
+    const l2account = await loginL2Account(messageToSign);
     return l2account;  // Return L2AccountInfo instance directly
   }
 );

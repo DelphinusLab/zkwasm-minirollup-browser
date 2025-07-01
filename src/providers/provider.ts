@@ -297,7 +297,7 @@ export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProv
   }
 }
 
-// 全局配置管理器 - 避免重复初始化
+// Global configuration manager - avoid duplicate initialization
 class WagmiConfigManager {
   private static instance: WagmiConfigManager;
   private config: ReturnType<typeof createConfig> | null = null;
@@ -311,12 +311,12 @@ class WagmiConfigManager {
     return WagmiConfigManager.instance;
   }
 
-  // 获取全局共享的 wagmi 配置
+  // Get global shared wagmi configuration
   getSharedConfig(): ReturnType<typeof createConfig> | null {
     return this.config;
   }
 
-  // 设置全局共享的 wagmi 配置
+  // Set global shared wagmi configuration
   setSharedConfig(config: ReturnType<typeof createConfig>) {
     if (!this.config) {
       this.config = config;
@@ -324,28 +324,28 @@ class WagmiConfigManager {
           }
   }
 
-  // 检查是否已有配置
+  // Check if configuration exists
   hasConfig(): boolean {
     return this.config !== null;
   }
 
-  // 清除配置（用于重置）
+  // Clear configuration (for reset)
   clearConfig() {
     this.config = null;
   }
 }
 
-// 获取共享的 wagmi 配置，如果没有则返回 null
+// Get shared wagmi configuration, return null if none exists
 function getSharedWagmiConfig(): ReturnType<typeof createConfig> | null {
   return WagmiConfigManager.getInstance().getSharedConfig();
 }
 
-// 设置共享的 wagmi 配置
+// Set shared wagmi configuration
 function setSharedWagmiConfig(config: ReturnType<typeof createConfig>) {
   WagmiConfigManager.getInstance().setSharedConfig(config);
 }
 
-// 导出配置管理器相关函数
+// Export configuration manager related functions
 export { getSharedWagmiConfig, setSharedWagmiConfig, WagmiConfigManager };
 
 // RainbowKit Provider implementation
@@ -356,7 +356,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   private config: ReturnType<typeof createConfig> | null = null;
 
   constructor() {
-    // 临时使用window.ethereum创建初始provider，但会在initialize时重新创建正确的provider
+    // Temporarily use window.ethereum to create initial provider, but will recreate correct provider during initialize
     if (!window.ethereum) {
       throw new Error("No ethereum provider found");
     }
@@ -369,7 +369,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     return this.chainId;
   }
 
-  // 从wagmi connector获取正确的provider
+      // Get correct provider from wagmi connector
   private async getCorrectProvider(): Promise<BrowserProvider> {
     if (!this.config) {
       throw new Error("No wagmi config available");
@@ -389,7 +389,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       console.warn('Failed to get provider from wagmi connector:', error);
     }
 
-    // 只在确实没有wagmi provider时才回退到window.ethereum
+    // Only fallback to window.ethereum when there is really no wagmi provider
     if (!hasEthereumProvider()) {
       throw new Error("No Ethereum provider available");
     }
@@ -412,7 +412,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       }
     }
 
-    // 更新正确的provider
+    // Update to correct provider
     try {
       const correctProvider = await this.getCorrectProvider();
       (this as any).provider = correctProvider;
@@ -421,26 +421,26 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       throw new Error(`Provider initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
-    // 更新内部状态
+    // Update internal state
     this.account = account;
     this.chainId = chainId;
     
-    // 获取signer
+    // Get signer
     try {
       this.signer = await this.provider.getSigner();
       
-      // 验证signer的地址是否与期望地址匹配
+      // Verify if signer address matches expected address
       const signerAddress = await this.signer.getAddress();
       if (signerAddress.toLowerCase() !== account.toLowerCase()) {
         console.warn('Signer address mismatch:', {
           signerAddress,
           expectedAddress: account
         });
-        // 这不是致命错误，继续执行
+        // This is not a fatal error, continue execution
       }
     } catch (error) {
       console.error('Failed to get signer during initialization:', error);
-      // signer获取失败是致命错误
+      // Signer acquisition failure is a fatal error
       throw new Error(`Signer initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -448,7 +448,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     // Create genuine RainbowKit style connection modal
   private async connectWithRainbowKit(): Promise<string> {
     try {
-      // 获取共享的配置，如果没有则抛出错误
+      // Get shared configuration, throw error if none exists
       if (!this.config) {
         this.config = getSharedWagmiConfig();
         if (!this.config) {

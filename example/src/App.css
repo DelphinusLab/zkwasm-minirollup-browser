@@ -28,7 +28,7 @@ h2 {
   margin-bottom: 20px;
 }
 
-/* 通用卡片样式 */
+/* Common card styles */
 .wallet-section,
 .account-section,
 .deposit-section,
@@ -51,7 +51,7 @@ h2 {
   box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
 }
 
-/* 钱包信息 */
+/* Wallet information */
 .wallet-info {
   margin-top: 16px;
   padding: 16px;
@@ -65,7 +65,7 @@ h2 {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
-/* 账户信息 */
+/* Account information */
 .account-info {
   padding: 16px;
   background: #f0f8ff;
@@ -99,7 +99,7 @@ h2 {
   color: #666;
 }
 
-/* 按钮样式 */
+/* Button styles */
 .login-button,
 .deposit-button {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -128,7 +128,7 @@ h2 {
   box-shadow: none;
 }
 
-/* L2 输入组 */
+/* L2 input group */
 .l2-input-group {
   display: flex;
   gap: 12px;
@@ -153,7 +153,7 @@ h2 {
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* 充值表单 */
+/* Deposit form */
 .deposit-form {
   max-width: 500px;
 }
@@ -202,7 +202,7 @@ h2 {
   font-style: italic;
 }
 
-/* 状态网格 */
+/* Status grid */
 .status-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -240,7 +240,7 @@ h2 {
   font-weight: bold;
 }
 
-/* 错误消息 */
+/* Error message */
 .error-message {
   color: #ff6b6b;
   font-size: 0.9em;
@@ -251,14 +251,14 @@ h2 {
   color: #ff6b6b;
 }
 
-/* 配置信息 */
+/* Configuration information */
 .config-info p {
   margin: 8px 0;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
   color: #495057;
 }
 
-/* 响应式设计 */
+/* Responsive design */
 @media (max-width: 768px) {
   .container {
     padding: 12px;
@@ -324,7 +324,7 @@ h2 {
   color: #888;
 }
 
-/* 新增的钱包连接样式 */
+/* New wallet connection styles */
 .connect-wallets {
   margin: 20px 0;
 }
@@ -537,7 +537,7 @@ h2 {
   font-weight: 500;
 }
 
-/* RainbowKit 演示样式 */
+/* RainbowKit demo styles */
 .rainbowkit-demo {
   background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
   border-radius: 16px;
@@ -632,7 +632,7 @@ h2 {
   margin-top: 8px;
 }
 
-/* 响应式设计 */
+/* Responsive design */
 @media (max-width: 768px) {
   .rainbowkit-demo {
     padding: 20px;

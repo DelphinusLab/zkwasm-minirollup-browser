@@ -1,19 +1,19 @@
-// 网络常量
-export const NETWORKS = {
+// Network constants
+export const CHAIN_IDS = {
   MAINNET: 1,
   SEPOLIA: 11155111,
-  BSC: 56,
-  LOCALHOST: 31337,
+  BSC_MAINNET: 56,
+  BSC_TESTNET: 97,
 } as const;
 
-// 默认配置
+// Default configuration
 export const DEFAULT_CONFIG = {
-  CHAIN_ID: NETWORKS.SEPOLIA,
+  CHAIN_ID: CHAIN_IDS.SEPOLIA,
   RPC_PORT: 3000,
   MODE: 'development',
 } as const;
 
-// 错误消息
+// Error messages
 export const ERROR_MESSAGES = {
   NO_WALLET: 'Wallet not connected',
   NO_PROVIDER: 'No provider found!',
@@ -45,7 +45,7 @@ export const ACTION_TYPES = {
   },
 } as const;
 
-// 应用状态
+// Application states
 export const APP_STATUS = {
   INITIAL: 'Initial',
   LOADING_L1: 'LoadingL1',
@@ -56,7 +56,7 @@ export const APP_STATUS = {
   READY: 'Ready',
 } as const;
 
-// 连接状态
+// Connection status
 export const CONNECT_STATE = {
   INIT: 'Init',
   ON_START: 'OnStart',
@@ -70,7 +70,7 @@ export const CONNECT_STATE = {
   WAITING_DEPOSIT_REPLY: 'WaitingDepositReply',
 } as const;
 
-// 数值常量
+// Numeric constants
 export const NUMERIC_CONSTANTS = {
   DECIMALS: 18,
   WEI_MULTIPLIER: '10',
@@ -79,7 +79,7 @@ export const NUMERIC_CONSTANTS = {
   RETRY_DELAY: 1000, // ms
 } as const;
 
-// Provider 类型
+// Provider types
 export const PROVIDER_TYPES = {
   BROWSER: 'browser',
   RAINBOW: 'rainbow',

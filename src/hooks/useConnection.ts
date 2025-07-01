@@ -15,32 +15,32 @@ export function useConnection(): ConnectionState {
     chainId: undefined
   });
 
-  // 直接使用 wagmi hooks - 这是正确的方式
+  // Use wagmi hooks directly - this is the correct approach
   const { address: wagmiAddress, isConnected: wagmiIsConnected } = useAccount();
   const wagmiChainId = useChainId();
 
   useEffect(() => {
     const updateConnectionState = async () => {
-      // 首先尝试使用 wagmi 的状态
+      // First try to use wagmi state
       if (wagmiIsConnected && wagmiAddress) {
-        const newState = {
-          isConnected: wagmiIsConnected,
-          address: wagmiAddress,
-          chainId: wagmiChainId
-        };
-        
-        setConnectionState(prevState => {
-          const hasChanged = 
-            prevState.isConnected !== newState.isConnected ||
-            prevState.address !== newState.address ||
-            prevState.chainId !== newState.chainId;
+    const newState = {
+      isConnected: wagmiIsConnected,
+      address: wagmiAddress,
+      chainId: wagmiChainId
+    };
+
+    setConnectionState(prevState => {
+      const hasChanged = 
+        prevState.isConnected !== newState.isConnected ||
+        prevState.address !== newState.address ||
+        prevState.chainId !== newState.chainId;
 
           return hasChanged ? newState : prevState;
         });
         return;
       }
 
-      // 如果 wagmi 没有检测到连接，但有 window.ethereum，检查直接连接状态
+      // If wagmi doesn't detect connection but window.ethereum exists, check direct connection state
       if (hasEthereumProvider()) {
         try {
           const accounts = await getConnectedAccounts();
@@ -71,7 +71,7 @@ export function useConnection(): ConnectionState {
         }
       }
 
-      // 如果都没有连接，设置为未连接状态
+              // If neither is connected, set to disconnected state
       const disconnectedState = {
         isConnected: false,
         address: undefined,
@@ -82,14 +82,14 @@ export function useConnection(): ConnectionState {
         if (prevState.isConnected) {
           return disconnectedState;
         }
-        return prevState;
-      });
+      return prevState;
+    });
     };
 
     updateConnectionState();
   }, [wagmiAddress, wagmiIsConnected, wagmiChainId]);
 
-  // 监听以太坊事件以进行状态一致性检查
+        // Listen to ethereum events for state consistency checks
   useEffect(() => {
     if (!hasEthereumProvider()) {
       return;
@@ -98,7 +98,7 @@ export function useConnection(): ConnectionState {
     const handleAccountsChanged = async (accounts: string[]) => {
       console.log('🔄 Accounts changed detected:', accounts);
       
-      // 检查 wagmi 和 ethereum 状态的一致性
+      // Check consistency between wagmi and ethereum state
       if (accounts.length > 0 && wagmiAddress && wagmiAddress !== accounts[0]) {
         console.warn('⚠️ Wagmi and ethereum state mismatch:', {
           wagmiAddress,
@@ -106,7 +106,7 @@ export function useConnection(): ConnectionState {
         });
       }
       
-      // 如果 wagmi 没有更新，使用直接状态
+              // If wagmi hasn't updated, use direct state
       if (!wagmiIsConnected && accounts.length > 0) {
         try {
           const chainIdHex = await window.ethereum!.request({ method: 'eth_chainId' });
@@ -134,7 +134,7 @@ export function useConnection(): ConnectionState {
         });
       }
       
-      // 更新链ID
+      // Update chain ID
       setConnectionState(prevState => {
         if (prevState.isConnected) {
           return { ...prevState, chainId: newChainId };
@@ -143,7 +143,7 @@ export function useConnection(): ConnectionState {
       });
     };
 
-    // 监听我们的自定义同步事件
+          // Listen to our custom sync events
     const handleWalletConnected = (event: CustomEvent) => {
       console.log('🔄 Custom wallet connected event:', event.detail);
       const { address, chainId } = event.detail;
@@ -155,7 +155,7 @@ export function useConnection(): ConnectionState {
       });
     };
 
-    // 添加事件监听器
+          // Add event listeners
     window.ethereum!.on('accountsChanged', handleAccountsChanged);
     window.ethereum!.on('chainChanged', handleChainChanged);
     window.addEventListener('walletConnected', handleWalletConnected as EventListener);

@@ -4,8 +4,8 @@ import { ERROR_MESSAGES } from './constants';
 import { createError } from './errors';
 
 /**
- * 验证当前网络是否正确，如果不正确则尝试切换
- * @param provider - Delphinus 提供者实例
+ * Validate current network and switch if incorrect
+ * @param provider - Delphinus provider instance
  * @returns Promise<void>
  */
 export async function validateAndSwitchNetwork(provider: DelphinusProvider): Promise<void> {
@@ -13,10 +13,10 @@ export async function validateAndSwitchNetwork(provider: DelphinusProvider): Pro
   const chainHexId = "0x" + targetChainId.toString(16);
   
   try {
-    // 尝试切换网络
+    // Attempt to switch network
     await provider.switchNet(chainHexId);
     
-    // 验证网络是否切换成功
+    // Verify if network switch was successful
     const currentNetwork = await provider.getNetworkId();
     if (currentNetwork.toString() !== targetChainId.toString()) {
       console.error(`Network mismatch: expected ${targetChainId}, got ${currentNetwork.toString()}`);
@@ -27,7 +27,7 @@ export async function validateAndSwitchNetwork(provider: DelphinusProvider): Pro
     }
   } catch (error) {
     if (error instanceof Error && error.message.includes('switch')) {
-      throw error; // 重新抛出网络切换错误
+      throw error; // Re-throw network switch errors
     }
     throw createError(
       `Failed to validate network: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -38,9 +38,9 @@ export async function validateAndSwitchNetwork(provider: DelphinusProvider): Pro
 }
 
 /**
- * 检查网络是否匹配目标链ID
- * @param currentChainId - 当前链ID
- * @param targetChainId - 目标链ID (可选，默认从环境变量获取)
+ * Check if network matches target chain ID
+ * @param currentChainId - Current chain ID
+ * @param targetChainId - Target chain ID (optional, defaults to environment variable value)
  * @returns boolean
  */
 export function isNetworkMatch(currentChainId: number | string, targetChainId?: number): boolean {
@@ -49,9 +49,9 @@ export function isNetworkMatch(currentChainId: number | string, targetChainId?: 
 }
 
 /**
- * 格式化链ID为十六进制
- * @param chainId - 链ID
- * @returns 十六进制字符串 (以0x开头)
+ * Format chain ID to hexadecimal
+ * @param chainId - Chain ID
+ * @returns Hexadecimal string (prefixed with 0x)
  */
 export function formatChainIdToHex(chainId: number): string {
   return "0x" + chainId.toString(16);

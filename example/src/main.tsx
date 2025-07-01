@@ -9,7 +9,7 @@ import App from './App.tsx'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <DelphinusReactProvider appName="Delphinus zkWasm MiniRollup Example">
+    <DelphinusReactProvider appName="Delphinus zkWasm MiniRollup">
       <App />
     </DelphinusReactProvider>
   </React.StrictMode>,

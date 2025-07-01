@@ -558,7 +558,7 @@ function HybridWalletComponent() {
    // ✅ Correct - Wrapped in provider
    function App() {
      return (
-       <DelphinusReactProvider>
+       <DelphinusReactProvider appName="Your App Name">
          <WalletComponent />
        </DelphinusReactProvider>
      );

@@ -4,17 +4,17 @@ import { L1AccountInfo, SerializableTransactionReceipt } from '../types';
 import { L2AccountInfo } from '../models/L2AccountInfo';
 
 export async function deposit(
-  _chainId: number, 
+  chainId: number, 
   tokenIndex: number, 
   amount: number, 
   l2account: L2AccountInfo, 
   l1account: L1AccountInfo
 ): Promise<SerializableTransactionReceipt> {
   return await withProvider(async (provider) => {
-    // 验证并切换网络
+    // Validate and switch network
     await validateAndSwitchNetwork(provider);
     
-    // 执行存款操作
+    // Execute deposit operation
     return await executeDeposit(provider, {
       tokenIndex,
       amount,

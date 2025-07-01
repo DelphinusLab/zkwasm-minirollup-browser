@@ -15,33 +15,62 @@ A modern, type-safe SDK for zkWasm Mini Rollup integration with **unified wallet
 
 ## 📋 Quick Start
 
-### 1. Installation
+### 1. Install the SDK
 
 ```bash
 npm install zkwasm-minirollup-browser
 ```
 
-### 2. Basic Setup (Recommended)
+### 2. Setup Provider (Choose one)
 
 ```tsx
 import React from 'react';
 import { DelphinusReactProvider } from 'zkwasm-minirollup-browser';
-import App from './App';
 
-function Main() {
+function App() {
   return (
     <DelphinusReactProvider appName="My zkWasm App">
-      <App />
+      <YourAppContent />
     </DelphinusReactProvider>
   );
 }
-
-export default Main;
 ```
 
-### 3. Environment Configuration
+> **⚠️ Important: App Name for L2 Login Signing**
+> 
+> The `appName` parameter is **not just a display name** - it is used as the message content for L2 account login signatures. When users connect their L2 account, they will sign your app name to generate their L2 private key.
+> 
+> - **Use a unique, descriptive name** for your application
+> - **Keep it consistent** across app versions (changing it will generate different L2 accounts)
+> - **Users will see this name** in their wallet when signing
+> - **Example**: `"MyDApp v1.0"`, `"GameXYZ Mainnet"`, `"MyApp Testing"`
 
-Create a `.env` file:
+### 3. Use the Unified Wallet Context
+
+```tsx
+import { useWalletContext } from 'zkwasm-minirollup-browser';
+
+function WalletComponent() {
+  const {
+    isConnected, isL2Connected, l1Account, l2Account, 
+    playerId, address, chainId,
+    connectL1, connectL2, disconnect, deposit
+  } = useWalletContext();
+
+  return (
+    <div>
+      <p>L1: {isConnected ? '✅' : '❌'} | L2: {isL2Connected ? '✅' : '❌'}</p>
+      <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
+      <button onClick={connectL1}>Connect L1</button>
+      <button onClick={connectL2}>Connect L2 (Signs App Name)</button>
+    </div>
+  );
+}
+```
+
+### 4. Environment Configuration
+
+Create a `.env` file in your project root:
 
 ```env
 # Required Configuration
@@ -179,6 +208,8 @@ function App() {
 
 ### Unified Wallet Context (Recommended)
 
+> **💡 Key Point**: The `appName` you provide to `DelphinusReactProvider` becomes the signature message for L2 login. Users will literally sign your app name to generate their L2 account.
+
 ```tsx
 import React from 'react';
 import { 
@@ -199,7 +230,7 @@ function WalletComponent() {
     
     // Actions
     connectL1,          // connect L1 wallet
-    connectL2,          // connect L2 account
+    connectL2,          // connect L2 account (signs appName!)
     disconnect,         // disconnect wallet
     setPlayerId,        // PID setter (derived from L2 account)
     deposit,            // deposit tokens to L2
@@ -210,6 +241,17 @@ function WalletComponent() {
     if (l2Account) {
       const serialized = l2Account.toSerializableData();
       console.log('Serialized L2 account:', serialized);
+    }
+  };
+  
+  // L2 Connection - User will be prompted to sign your app name
+  const handleL2Connect = async () => {
+    try {
+      // This will prompt user to sign the appName from DelphinusReactProvider
+      await connectL2();
+      console.log('L2 account connected via app name signature');
+    } catch (error) {
+      console.error('L2 connection failed:', error);
     }
   };
   
@@ -247,16 +289,13 @@ function WalletComponent() {
       <div className="actions-section">
         {!isConnected ? (
           <button onClick={connectL1}>Connect L1 Wallet</button>
+        ) : !isL2Connected ? (
+          <button onClick={handleL2Connect}>
+            Connect L2 (Sign App Name)
+          </button>
         ) : (
           <div>
-            {!isL2Connected && (
-              <button onClick={connectL2}>Connect L2 Account</button>
-            )}
-            
-            {isL2Connected && (
-              <button onClick={handleDeposit}>Deposit 0.01 ETH</button>
-            )}
-            
+            <button onClick={handleDeposit}>Deposit 0.01 ETH</button>
             <button onClick={disconnect}>Disconnect</button>
             <button onClick={handleSerialize}>Serialize L2 Account</button>
           </div>
@@ -640,7 +679,7 @@ class WalletErrorBoundary extends React.Component {
 function App() {
   return (
     <WalletErrorBoundary>
-      <DelphinusReactProvider>
+      <DelphinusReactProvider appName="Your App Name">
         <YourApp />
       </DelphinusReactProvider>
     </WalletErrorBoundary>

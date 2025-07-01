@@ -5,6 +5,7 @@ import { useConnection } from './useConnection';
 import { useWalletActions } from './useWalletActions';
 import { depositAsync } from '../store/thunks';
 import { resetAccountState } from '../store/account-slice';
+import { useDelphinusContext } from '../delphinus-provider';
 import type { RootState, AppDispatch } from '../types';
 
 export interface WalletContextType {
@@ -16,6 +17,12 @@ export interface WalletContextType {
   address: string | undefined;
   chainId: number | undefined;
   connectL1: () => Promise<void>;
+  /**
+   * Connect L2 account - user will sign appName from Provider
+   * 
+   * This method will prompt user to sign application name in wallet to generate L2 account private key.
+   * The signed message is the appName parameter passed to DelphinusReactProvider.
+   */
   connectL2: () => Promise<void>;
   disconnect: () => void;
   setPlayerId: (id: [string, string]) => void;
@@ -23,28 +30,39 @@ export interface WalletContextType {
 }
 
 /**
- * 统一的钱包上下文Hook，提供WalletContextType接口所需的所有功能
- * 这个hook整合了连接状态、账户信息、PID管理等功能
+ * Unified wallet context Hook, provides all functionality required by WalletContextType interface
+ * This hook integrates connection status, account information, PID management and other functionality
+ * 
+ * ⚠️ Important Notice: L2 Login Signing
+ * - connectL2() will use appName from Provider as signature message
+ * - Users will see and sign your application name in wallet when connecting L2 account
+ * - Same appName will generate the same L2 account for the same user
+ * - Different appName will generate different L2 accounts for the same user
+ * 
+ * @returns WalletContextType Complete wallet context object
  */
 export function useWalletContext(): WalletContextType {
   const dispatch = useDispatch<AppDispatch>();
   
-  // 获取连接状态
+  // Get appName from Provider
+  const { appName } = useDelphinusContext();
+  
+  // Get connection status
   const { isConnected, address, chainId } = useConnection();
   
-  // 获取 wagmi disconnect 功能
+  // Get wagmi disconnect functionality
   const { disconnect: wagmiDisconnect } = useDisconnect();
   
-  // 获取钱包操作方法
+  // Get wallet operation methods
   const { connectAndLoginL1, loginL2 } = useWalletActions(address, chainId);
   
-  // 获取Redux状态
+  // Get Redux state
   const { l1Account, l2account } = useSelector((state: RootState) => state.account);
   
-  // 计算派生状态
+  // Calculate derived state
   const isL2Connected = useMemo(() => !!l2account, [l2account]);
   
-  // 获取playerId (PID数组)
+  // Get playerId (PID array)
   const playerId = useMemo((): [string, string] | null => {
     if (!l2account) return null;
     
@@ -57,35 +75,35 @@ export function useWalletContext(): WalletContextType {
     }
   }, [l2account]);
   
-  // L1连接方法
+  // L1 connection method
   const connectL1 = useCallback(async () => {
     await connectAndLoginL1(dispatch);
   }, [connectAndLoginL1, dispatch]);
   
-  // L2连接方法
+  // L2 connection method - use appName from Provider
   const connectL2 = useCallback(async () => {
-    await loginL2(dispatch, "WalletContext");
-  }, [loginL2, dispatch]);
+    await loginL2(dispatch, appName);
+  }, [loginL2, dispatch, appName]);
   
-  // 断开连接方法
+  // Disconnect method
   const disconnect = useCallback(() => {
-    // 先断开 wagmi 连接
+    // First disconnect wagmi connection
     wagmiDisconnect();
     
-    // 然后清除 Redux 状态
+    // Then clear Redux state
     dispatch(resetAccountState());
   }, [wagmiDisconnect, dispatch]);
   
-  // 设置playerId方法 - 通过重新创建L2账户来实现
+  // Set playerId method - implemented by recreating L2 account
   const setPlayerId = useCallback((id: [string, string]) => {
     console.warn(
-      'setPlayerId: PID是由L2账户的私钥派生的，无法直接设置。',
-      '如需更改PID，请重新进行L2登录以生成新的L2账户。',
-      '提供的PID:', id
+      'setPlayerId: PID is derived from L2 account private key and cannot be set directly.',
+      'To change PID, please re-login L2 to generate a new L2 account.',
+      'Provided PID:', id
     );
   }, []);
   
-  // 存款方法
+  // Deposit method
   const deposit = useCallback(async (params: { tokenIndex: number; amount: number }) => {
     if (!l1Account) {
       throw new Error('L1 account is not connected');
