@@ -81,6 +81,8 @@ export {
   selectL1Account,
   selectL2Account,
   selectLoginStatus,
+
+  sendTransaction,
   
   // Account actions
   setL1Account,

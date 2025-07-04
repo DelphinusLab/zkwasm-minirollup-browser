@@ -6,7 +6,7 @@ import { useWalletActions } from './useWalletActions';
 import { depositAsync } from '../store/thunks';
 import { resetAccountState } from '../store/account-slice';
 import { useDelphinusContext } from '../delphinus-provider';
-import type { RootState, AppDispatch } from '../types';
+import type { RootState, AppDispatch, SerializableTransactionReceipt } from '../types';
 
 export interface WalletContextType {
   isConnected: boolean;
@@ -26,7 +26,7 @@ export interface WalletContextType {
   connectL2: () => Promise<void>;
   disconnect: () => void;
   setPlayerId: (id: [string, string]) => void;
-  deposit: (params: { tokenIndex: number; amount: number }) => Promise<void>;
+  deposit: (params: { tokenIndex: number; amount: number }) => Promise<SerializableTransactionReceipt>;
 }
 
 /**
@@ -111,17 +111,18 @@ export function useWalletContext(): WalletContextType {
     if (!l2account) {
       throw new Error('L2 account is not connected');
     }
-    
+  
     const result = await (dispatch as any)(depositAsync({
       tokenIndex: params.tokenIndex,
       amount: params.amount,
       l2account: l2account,
       l1account: l1Account
     }));
-    
+  
     if (depositAsync.rejected.match(result)) {
       throw new Error(result.error.message || 'Deposit failed');
     }
+    return result.payload as SerializableTransactionReceipt;
   }, [dispatch, l1Account, l2account]);
   
   return {
