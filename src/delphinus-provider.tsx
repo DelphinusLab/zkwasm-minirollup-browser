@@ -2,7 +2,29 @@ import '@rainbow-me/rainbowkit/styles.css';
 import React, { createContext, useContext } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
+import { 
+  RainbowKitProvider, 
+  getDefaultConfig
+} from '@rainbow-me/rainbowkit';
+import { 
+  metaMaskWallet,
+  walletConnectWallet,
+  coinbaseWallet,
+  rainbowWallet,
+  trustWallet,
+  ledgerWallet,
+  phantomWallet,
+  okxWallet,
+  bitgetWallet,
+  imTokenWallet,
+  injectedWallet,
+  safeWallet,
+  argentWallet,
+  braveWallet,
+  zerionWallet,
+  oneInchWallet,
+  uniswapWallet,
+} from '@rainbow-me/rainbowkit/wallets';
 import { Provider as ReduxProvider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { mainnet, sepolia, type Chain } from 'wagmi/chains';
@@ -66,10 +88,55 @@ export function createDelphinusRainbowKitConfig(options: {
   const selectedChains = getChains();
   const projectId = options?.projectId || envConfig.walletConnectId || 'YOUR_PROJECT_ID';
 
+  // 警告：如果没有配置正确的 Project ID
+  if (!projectId || projectId === 'YOUR_PROJECT_ID') {
+    console.warn('⚠️ WalletConnect Project ID not configured. Mobile wallets may not work properly.');
+    console.warn('Please set REACT_APP_WALLETCONNECT_PROJECT_ID in your .env file');
+  }
+
   cachedConfig = getDefaultConfig({
     appName: options.appName, // Use provided appName directly, no default value
     projectId: projectId,
     chains: selectedChains,
+    wallets: [
+      {
+        groupName: 'Popular',
+        wallets: [
+          metaMaskWallet,
+          walletConnectWallet,
+          coinbaseWallet,
+          rainbowWallet,
+        ],
+      },
+      {
+        groupName: 'Mobile Wallets',
+        wallets: [
+          trustWallet,
+          phantomWallet,
+          okxWallet,
+          bitgetWallet,
+          imTokenWallet,
+          argentWallet,
+          zerionWallet,
+          oneInchWallet,
+          uniswapWallet,
+        ],
+      },
+      {
+        groupName: 'Browser & Hardware',
+        wallets: [
+          braveWallet,
+          ledgerWallet,
+          safeWallet,
+        ],
+      },
+      {
+        groupName: 'Other',
+        wallets: [
+          injectedWallet,
+        ],
+      },
+    ],
     ssr: false, // Disable SSR for better client-side session recovery
   });
 
