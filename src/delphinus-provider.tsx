@@ -87,12 +87,31 @@ export function createDelphinusRainbowKitConfig(options: {
   };
 
   const selectedChains = getChains();
-  const projectId = options?.projectId || envConfig.walletConnectId || 'YOUR_PROJECT_ID';
+  const projectId = options?.projectId || envConfig.walletConnectId;
 
-  // 警告：如果没有配置正确的 Project ID
-  if (!projectId || projectId === 'YOUR_PROJECT_ID') {
-    console.warn('⚠️ WalletConnect Project ID not configured. Mobile wallets may not work properly.');
-    console.warn('Please set REACT_APP_WALLETCONNECT_PROJECT_ID in your .env file');
+  // 严格验证 Project ID
+  if (!projectId || projectId.trim() === '' || projectId === 'YOUR_PROJECT_ID') {
+    const errorMessage = '❌ WalletConnect Project ID is required for mobile wallet connections!';
+    const instructionMessage = '📝 Please set REACT_APP_WALLETCONNECT_PROJECT_ID in your .env file';
+    const getIdMessage = '🔗 Get your Project ID at: https://cloud.walletconnect.com/';
+    
+    console.error(errorMessage);
+    console.error(instructionMessage);
+    console.error(getIdMessage);
+    
+    // 在开发环境中抛出错误，生产环境中仅警告
+    if (envConfig.mode === 'development') {
+      console.error('⚠️ Continuing with limited functionality - mobile wallets will not work');
+      // 使用一个临时的 Project ID 让应用继续运行
+      return getDefaultConfig({
+        appName: options.appName,
+        projectId: '068bed678b6a76c67adc59a4e63d0c6c', // 临时 ID
+        chains: selectedChains,
+        ssr: false,
+      });
+    }
+    
+    throw new Error(`${errorMessage} ${instructionMessage} ${getIdMessage}`);
   }
 
   cachedConfig = getDefaultConfig({
@@ -141,6 +160,11 @@ export function createDelphinusRainbowKitConfig(options: {
     ],
     ssr: false, // Disable SSR for better client-side session recovery
   });
+
+  // 验证配置是否成功创建
+  if (!cachedConfig) {
+    throw new Error('Failed to create Wagmi configuration. Please check your setup.');
+  }
 
   // Set configuration as global shared configuration for other components to use
   setSharedWagmiConfig(cachedConfig);
