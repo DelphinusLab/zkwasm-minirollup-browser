@@ -30,58 +30,67 @@ export function getEnvConfig(): EnvConfig {
     mode: 'development'
   };
 
-  // 调试信息：显示所有环境变量来源
-  console.log('🔍 Environment Variable Debug:');
-  console.log('  - import.meta.env available:', typeof import.meta !== 'undefined' && !!(import.meta as any).env);
-  console.log('  - process.env available:', typeof process !== 'undefined' && !!process.env);
-  
-  if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-    const env = (import.meta as any).env;
-    console.log('  - import.meta.env.REACT_APP_WALLETCONNECT_PROJECT_ID:', env.REACT_APP_WALLETCONNECT_PROJECT_ID);
-  }
-  
-  if (typeof process !== 'undefined' && process.env) {
-    console.log('  - process.env.REACT_APP_WALLETCONNECT_PROJECT_ID:', process.env.REACT_APP_WALLETCONNECT_PROJECT_ID);
-    console.log('  - process.env.NODE_ENV:', process.env.NODE_ENV);
-  }
+
 
   try {
     // 1. Priority check Node.js environment (process.env) - for Create React App, Next.js etc.
     // This now includes variables loaded by dotenv and Vite's define config
     if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_WALLETCONNECT_PROJECT_ID) {
+      // Helper function to clean JSON.stringify'd values from Vite's define config
+      const cleanValue = (value: string | undefined): string => {
+        if (!value) return '';
+        // Remove surrounding quotes if present (from JSON.stringify)
+        return value.replace(/^"(.*)"$/, '$1');
+      };
+      
+      const chainIdStr = cleanValue(process.env.REACT_APP_CHAIN_ID) || '11155111';
       const config = {
-        chainId: parseInt(process.env.REACT_APP_CHAIN_ID || '11155111'),
-        depositContract: process.env.REACT_APP_DEPOSIT_CONTRACT || '',
-        tokenContract: process.env.REACT_APP_TOKEN_CONTRACT || '',
-        walletConnectId: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || '',
+        chainId: parseInt(chainIdStr),
+        depositContract: cleanValue(process.env.REACT_APP_DEPOSIT_CONTRACT),
+        tokenContract: cleanValue(process.env.REACT_APP_TOKEN_CONTRACT),
+        walletConnectId: cleanValue(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID),
         mode: process.env.NODE_ENV || 'development'
       };
-      console.log('  ✅ Using process.env config:', config);
       return config;
     }
     
     // 2. Check Vite environment (import.meta.env) - fallback for Vite-specific variables
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
       const env = (import.meta as any).env;
+      // Helper function to clean JSON.stringify'd values
+      const cleanValue = (value: string | undefined): string => {
+        if (!value) return '';
+        // Remove surrounding quotes if present (from JSON.stringify)
+        return value.replace(/^"(.*)"$/, '$1');
+      };
+      
+      const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID) || '11155111';
       const config = {
-        chainId: parseInt(env.REACT_APP_CHAIN_ID || '11155111'),
-        depositContract: env.REACT_APP_DEPOSIT_CONTRACT || '',
-        tokenContract: env.REACT_APP_TOKEN_CONTRACT || '',
-        walletConnectId: env.REACT_APP_WALLETCONNECT_PROJECT_ID || '',
+        chainId: parseInt(chainIdStr),
+        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT),
+        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT),
+        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID),
         mode: env.MODE || 'development'
       };
-      console.log('  ✅ Using import.meta.env config:', config);
-      return config;
+        return config;
     }
     
     // 3. Check global variables (for certain build tools)
     if (typeof window !== 'undefined' && (window as any).__ENV__) {
       const env = (window as any).__ENV__;
+      // Helper function to clean JSON.stringify'd values
+      const cleanValue = (value: string | undefined): string => {
+        if (!value) return '';
+        // Remove surrounding quotes if present (from JSON.stringify)
+        return value.replace(/^"(.*)"$/, '$1');
+      };
+      
+      const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID) || '11155111';
       return {
-        chainId: parseInt(env.REACT_APP_CHAIN_ID || '11155111'),
-        depositContract: env.REACT_APP_DEPOSIT_CONTRACT || '',
-        tokenContract: env.REACT_APP_TOKEN_CONTRACT || '',
-        walletConnectId: env.REACT_APP_WALLETCONNECT_PROJECT_ID || '',
+        chainId: parseInt(chainIdStr),
+        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT),
+        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT),
+        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID),
         mode: env.MODE || 'development'
       };
     }
@@ -102,7 +111,6 @@ export function getEnvConfig(): EnvConfig {
     console.warn('Failed to get environment variables:', error);
   }
   
-  console.log('  ⚠️ Using default config (no env vars found):', defaultConfig);
   return defaultConfig;
 }
 

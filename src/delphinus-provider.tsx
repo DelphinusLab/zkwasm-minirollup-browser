@@ -89,27 +89,11 @@ export function createDelphinusRainbowKitConfig(options: {
   const selectedChains = getChains();
   const projectId = options?.projectId || envConfig.walletConnectId;
 
-  // 严格验证 Project ID
+  // 验证 Project ID
   if (!projectId || projectId.trim() === '' || projectId === 'YOUR_PROJECT_ID') {
-    const errorMessage = '❌ WalletConnect Project ID is required for mobile wallet connections!';
-    const instructionMessage = '📝 Please set REACT_APP_WALLETCONNECT_PROJECT_ID in your .env file';
-    const getIdMessage = '🔗 Get your Project ID at: https://cloud.walletconnect.com/';
-    
-    console.error(errorMessage);
-    console.error(instructionMessage);
-    console.error(getIdMessage);
-    
-    // 在开发环境中抛出错误，生产环境中仅警告
-    if (envConfig.mode === 'development') {
-      console.error('⚠️ Continuing with limited functionality - mobile wallets will not work');
-      // 使用一个临时的 Project ID 让应用继续运行
-      return getDefaultConfig({
-        appName: options.appName,
-        projectId: '068bed678b6a76c67adc59a4e63d0c6c', // 临时 ID
-        chains: selectedChains,
-        ssr: false,
-      });
-    }
+    const errorMessage = 'WalletConnect Project ID is required for mobile wallet connections!';
+    const instructionMessage = 'Please set REACT_APP_WALLETCONNECT_PROJECT_ID in your .env file';
+    const getIdMessage = 'Get your Project ID at: https://cloud.walletconnect.com/';
     
     throw new Error(`${errorMessage} ${instructionMessage} ${getIdMessage}`);
   }
