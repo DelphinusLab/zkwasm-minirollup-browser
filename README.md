@@ -739,3 +739,74 @@ function RainbowKitIntegration() {
   );
 }
 ```
+
+## WalletConnect / Mobile Wallet Support
+
+This SDK provides enhanced support for mobile wallets and WalletConnect with automatic session recovery.
+
+### Key Features
+
+- **Automatic Session Recovery**: WalletConnect sessions are automatically restored after page refresh or mobile app switching
+- **Enhanced Error Handling**: Clear error messages help users understand connection issues
+- **Mobile-Optimized**: Designed to work seamlessly with mobile wallet apps
+
+### Usage
+
+```tsx
+import { DelphinusProvider } from 'zkwasm-minirollup-browser';
+
+function App() {
+  return (
+    <DelphinusProvider appName="Your App Name">
+      <YourAppContent />
+    </DelphinusProvider>
+  );
+}
+```
+
+### Mobile Wallet Flow
+
+1. **Connect L1**: User connects their wallet (MetaMask, WalletConnect, etc.)
+2. **App Switching**: User may switch to wallet app for signing
+3. **Auto Recovery**: When returning to your app, the connection is automatically restored
+4. **Connect L2**: User can then connect to L2 without re-connecting L1
+
+### Troubleshooting
+
+#### "No Ethereum Provider Found" Error
+
+This error typically occurs on mobile when:
+- The page refreshed after wallet switching
+- WalletConnect session was lost
+- Provider configuration is missing
+
+**Solutions:**
+1. Ensure your app is wrapped with `DelphinusProvider`
+2. The SDK will automatically attempt to reconnect
+3. If auto-reconnection fails, the user will be prompted to reconnect
+
+#### Session Recovery
+
+The SDK automatically handles session recovery by:
+- Checking for existing wagmi connections on initialization
+- Attempting to reconnect WalletConnect sessions
+- Falling back to manual connection if needed
+
+### Configuration
+
+```tsx
+<DelphinusProvider
+  appName="Your App Name"
+  projectId="your-walletconnect-project-id" // Optional, will use env var if not provided
+  chains={[sepolia]} // Optional, defaults based on REACT_APP_CHAIN_ID
+>
+  <App />
+</DelphinusProvider>
+```
+
+### Environment Variables
+
+```bash
+REACT_APP_WALLETCONNECT_PROJECT_ID=your_project_id
+REACT_APP_CHAIN_ID=11155111  # Sepolia testnet
+```

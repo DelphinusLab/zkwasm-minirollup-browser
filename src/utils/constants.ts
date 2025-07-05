@@ -25,6 +25,10 @@ export const ERROR_MESSAGES = {
   INSUFFICIENT_BALANCE: (required: string, available: string) => 
     `Not enough balance for deposit. Required: ${required}, Available: ${available}`,
   APPROVAL_FAILED: 'Not enough balance for approve',
+  WALLET_RECONNECT_REQUIRED: 'Wallet connection lost. Please reconnect your wallet to continue.',
+  PROVIDER_CONFIG_MISSING: 'Wallet provider not configured. Please ensure your app is properly initialized.',
+  WAGMI_CONFIG_MISSING: 'Wallet configuration missing. Please ensure DelphinusProvider wraps your app.',
+  PROVIDER_INIT_FAILED: 'Failed to initialize wallet provider',
 } as const;
 
 // Redux Action Types

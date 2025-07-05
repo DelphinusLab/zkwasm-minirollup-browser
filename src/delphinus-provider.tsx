@@ -70,6 +70,7 @@ export function createDelphinusRainbowKitConfig(options: {
     appName: options.appName, // Use provided appName directly, no default value
     projectId: projectId,
     chains: selectedChains,
+    ssr: false, // Disable SSR for better client-side session recovery
   });
 
   // Set configuration as global shared configuration for other components to use
@@ -221,7 +222,7 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
   });
 
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={config} reconnectOnMount={true}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
           <ReduxProvider store={store}>
