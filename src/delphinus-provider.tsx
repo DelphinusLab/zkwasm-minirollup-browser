@@ -89,6 +89,14 @@ export function createDelphinusRainbowKitConfig(options: {
   const selectedChains = getChains();
   const projectId = options?.projectId || envConfig.walletConnectId;
 
+  // 记录 Project ID 的实际值用于调试
+  console.log('🔍 WalletConnect Project ID Debug:');
+  console.log('  - options?.projectId:', options?.projectId);
+  console.log('  - envConfig.walletConnectId:', envConfig.walletConnectId);
+  console.log('  - Final projectId:', projectId);
+  console.log('  - projectId type:', typeof projectId);
+  console.log('  - projectId length:', projectId?.length);
+
   // 验证 Project ID
   if (!projectId || projectId.trim() === '' || projectId === 'YOUR_PROJECT_ID') {
     const errorMessage = 'WalletConnect Project ID is required for mobile wallet connections!';
@@ -98,6 +106,9 @@ export function createDelphinusRainbowKitConfig(options: {
     throw new Error(`${errorMessage} ${instructionMessage} ${getIdMessage}`);
   }
 
+  // 确认传递给 RainbowKit 的 Project ID
+  console.log('✅ Creating RainbowKit config with Project ID:', projectId);
+  
   cachedConfig = getDefaultConfig({
     appName: options.appName, // Use provided appName directly, no default value
     projectId: projectId,
