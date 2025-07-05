@@ -46,7 +46,21 @@ export function getEnvConfig(): EnvConfig {
   }
 
   try {
-    // 1. Priority check Vite environment (import.meta.env)
+    // 1. Priority check Node.js environment (process.env) - for Create React App, Next.js etc.
+    // This now includes variables loaded by dotenv and Vite's define config
+    if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_WALLETCONNECT_PROJECT_ID) {
+      const config = {
+        chainId: parseInt(process.env.REACT_APP_CHAIN_ID || '11155111'),
+        depositContract: process.env.REACT_APP_DEPOSIT_CONTRACT || '',
+        tokenContract: process.env.REACT_APP_TOKEN_CONTRACT || '',
+        walletConnectId: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || '',
+        mode: process.env.NODE_ENV || 'development'
+      };
+      console.log('  ✅ Using process.env config:', config);
+      return config;
+    }
+    
+    // 2. Check Vite environment (import.meta.env) - fallback for Vite-specific variables
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
       const env = (import.meta as any).env;
       const config = {
@@ -57,20 +71,6 @@ export function getEnvConfig(): EnvConfig {
         mode: env.MODE || 'development'
       };
       console.log('  ✅ Using import.meta.env config:', config);
-      return config;
-    }
-    
-    // 2. Check Node.js environment (process.env) - for Create React App, Next.js etc.
-    // This now includes variables loaded by dotenv
-    if (typeof process !== 'undefined' && process.env) {
-      const config = {
-        chainId: parseInt(process.env.REACT_APP_CHAIN_ID || '11155111'),
-        depositContract: process.env.REACT_APP_DEPOSIT_CONTRACT || '',
-        tokenContract: process.env.REACT_APP_TOKEN_CONTRACT || '',
-        walletConnectId: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID || '',
-        mode: process.env.NODE_ENV || 'development'
-      };
-      console.log('  ✅ Using process.env config:', config);
       return config;
     }
     
