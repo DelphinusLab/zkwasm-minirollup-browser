@@ -24,6 +24,7 @@ import {
   zerionWallet,
   oneInchWallet,
   uniswapWallet,
+  tokenPocketWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import { Provider as ReduxProvider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
@@ -112,6 +113,7 @@ export function createDelphinusRainbowKitConfig(options: {
         groupName: 'Mobile Wallets',
         wallets: [
           trustWallet,
+          tokenPocketWallet,
           phantomWallet,
           okxWallet,
           bitgetWallet,
