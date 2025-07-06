@@ -153,3 +153,17 @@ export {
   getRpc
 } from './rpc/client';
 
+// ========================================
+// 🗄️ REDUX SUPPORT (Optional)
+// ========================================
+
+// Export createDelphinusStore for projects that use custom reducers
+export {
+  createDelphinusStore,
+  configureStore,
+  useSelector,
+  useDispatch,
+  ReduxProvider,
+} from './store';
+
+
