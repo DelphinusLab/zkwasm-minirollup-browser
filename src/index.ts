@@ -1,187 +1,140 @@
 // ========================================
-// 🚀 NEW PROVIDER DESIGN PATTERN EXPORTS
+// 🚀 CORE EXPORTS (Essential)
 // ========================================
 
-// Provider interfaces and core functions
-export {
-  type DelphinusProvider,
-  
-  // Provider manager functions
-  getProvider,
-  setProviderConfig,
-  withProvider,
-  
-  // Concrete Provider implementations (only used ones)
-  DelphinusRainbowConnector,
-} from "./providers/provider";
-
-// Environment variable adapter exports
-export {
-  getEnvConfig,
-  validateEnvConfig,
-} from "./config/env-adapter";
-
-// Provider utilities exports
-export {
-  syncBrowserWalletState,
-  hasEthereumProvider,
-  getConnectedAccounts,
-} from "./utils/provider";
-
-// ========================================
-// 🌈 RAINBOWKIT & WAGMI RE-EXPORTS
-// ========================================
-
-// Only export the RainbowKit components actually used in examples
-export {
-  ConnectButton,
-  useConnectModal,
-} from '@rainbow-me/rainbowkit';
-
-
-
-// ========================================
-// 🎯 UNIFIED DELPHINUS PROVIDER
-// ========================================
-
-// Unified Provider component (wraps all necessary Providers)
+// Main Provider component - REQUIRED
 export {
   DelphinusProvider as DelphinusReactProvider,
 } from './delphinus-provider';
 
-// ========================================
-// 🎯 MAIN WALLET HOOK (RECOMMENDED)
-// ========================================
+// Provider configuration - REQUIRED
+export {
+  setProviderConfig,
+} from "./providers/provider";
 
-// Complete wallet context hook - provides all WalletContextType functionality
+// Main wallet hook - RECOMMENDED
 export {
   useWalletContext,
   type WalletContextType,
 } from './hooks/useWalletContext';
 
-// ========================================
-// 🗄️ REDUX STATE MANAGEMENT (Advanced Usage)
-// ========================================
-
-// Redux store and utilities for advanced users
+// RainbowKit components - USED IN EXAMPLES
 export {
-  // Store configuration
-  createDelphinusStore,
-  
-  // Redux core exports
-  useSelector,
-  useDispatch,
-  ReduxProvider,
-  
-  // Typed Redux helpers
-  type RootState,
-  type AppDispatch,
-  
-  // Account state selectors
-  selectL1Account,
-  selectL2Account,
-  selectLoginStatus,
-  // Account actions
-  setL1Account,
-  resetAccountState,
-} from './store';
+  ConnectButton,
+  useConnectModal,
+} from '@rainbow-me/rainbowkit';
 
 // ========================================
-// 🔧 ADVANCED HOOKS (For Custom Implementation)
+// 📊 RPC THUNKS (Actually Used)
 // ========================================
 
-// Split hooks for advanced users who need granular control
+// RPC thunks used in frontend-nugget
 export {
-  useConnection,
-  useWalletActions,
-} from './hooks';
-  
-// Account state type
+  getConfig,
+  sendTransaction,
+  queryState,
+  queryInitialState,
+} from './store/rpc-thunks';
+
+// ========================================
+// 🏪 APP SLICE (Used for ConnectState)
+// ========================================
+
+// ConnectState enum used in frontend-nugget
 export {
-  type AccountState,
-} from './types/account';
+  ConnectState,
+} from './store/app-slice';
+
+// ========================================
+// 🏗️ MODELS (L2 Account)
+// ========================================
+
+// L2 Account model - USED
+export {
+  L2AccountInfo,
+} from './models/L2AccountInfo';
+
+// ========================================
+// 🎯 TYPES (Essential TypeScript Support)
+// ========================================
+
+// Only essential types
+export {
+  type L2AccountData,
+} from './types';
 
 // ========================================
 // 📚 Usage Guide
 // ========================================
 
 /*
-RECOMMENDED USAGE - Complete Wallet Context:
+RECOMMENDED USAGE:
 
 ```typescript
 import { 
   DelphinusReactProvider, 
   useWalletContext,
-  type WalletContextType 
+  setProviderConfig 
 } from 'zkwasm-minirollup-browser';
 
-// In main.tsx
-// ⚠️ IMPORTANT: appName is used for L2 login signatures!
-// Users will sign this message to generate their L2 account.
-// Keep it unique and consistent for your app.
+// In main.tsx - REQUIRED setup
+setProviderConfig({ type: 'rainbow' });
+
+// In App.tsx
 <DelphinusReactProvider appName="Your App">
   <App />
 </DelphinusReactProvider>
 
-// In your component - ONE HOOK for everything!
+// In your component
 function WalletComponent() {
   const {
-    isConnected,        // L1 connection status
-    isL2Connected,      // L2 connection status  
-    l1Account,          // L1 account info
-    l2Account,          // L2 account info (full L2AccountInfo instance)
-    playerId,           // [string, string] | null - PID array
-    address,            // wallet address
-    chainId,            // current chain ID
-    connectL1,          // connect L1 wallet
-    connectL2,          // connect L2 account (signs appName)
-    disconnect,         // disconnect wallet
-    setPlayerId,        // PID setter (derived from L2 account)
+    isConnected,
+    isL2Connected,  
+    l1Account,
+    l2Account,
+    connectL1,
+    connectL2,
+    disconnect,
   } = useWalletContext();
-  
-  // Access L2 account methods directly
-  const handleSerialize = () => {
-    if (l2Account) {
-      const serialized = l2Account.toSerializableData();
-      console.log('Serialized L2 account:', serialized);
-    }
-  };
   
   return (
     <div>
-      <p>L1: {isConnected ? '✅' : '❌'} | L2: {isL2Connected ? '✅' : '❌'}</p>
-      <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
-      <p>Address: {address}</p>
       <button onClick={connectL1}>Connect L1</button>
-      <button onClick={connectL2}>Connect L2 (Sign "{appName}")</button>
-      <button onClick={handleSerialize}>Serialize L2 Account</button>
+      <button onClick={connectL2}>Connect L2</button>
     </div>
   );
 }
 ```
 
-ADVANCED USAGE - Custom Redux Integration:
+ADVANCED USAGE (for frontend-nugget style projects):
+
 ```typescript
 import { 
-  useSelector, 
-  useDispatch,
-  type RootState,
-  createDelphinusStore
+  getConfig,
+  sendTransaction,
+  queryState,
+  queryInitialState,
+  ConnectState,
+  L2AccountInfo,
 } from 'zkwasm-minirollup-browser';
 
-// Direct Redux state access for advanced users
-const { l1Account, l2account } = useSelector((state: RootState) => state.account);
+// Use with Redux dispatch
+dispatch(getConfig());
+dispatch(sendTransaction({ cmd: cmdArray, prikey: privateKey }));
+
+// Check connection state
+if (connectState === ConnectState.Idle) {
+  // Ready for interaction
+}
+
+// Create L2 account
+const l2Account = new L2AccountInfo('0x' + privateKey);
 ```
 
-Environment Configuration:
-- Uses dotenv to automatically load .env files
-- All variables use REACT_APP_ prefix
-- Create .env file with: REACT_APP_CHAIN_ID, REACT_APP_DEPOSIT_CONTRACT, etc.
-
-L2 Login Signing:
-- appName parameter is the message users sign for L2 account generation
-- Same appName = same L2 account for a user
-- Different appName = different L2 account for the same user
-- Choose your appName carefully and keep it consistent!
+Migration from Direct Imports:
+- Replace: import { sendTransaction } from "zkwasm-minirollup-browser/dist/store/rpc-thunks";
+- With: import { sendTransaction } from "zkwasm-minirollup-browser";
+- Replace: import { ConnectState } from "zkwasm-minirollup-browser/dist/store/app-slice";  
+- With: import { ConnectState } from "zkwasm-minirollup-browser";
 */
 
