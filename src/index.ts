@@ -28,7 +28,7 @@ export {
 // 📊 RPC THUNKS (Actually Used)
 // ========================================
 
-// RPC thunks used in frontend-nugget
+// RPC thunks
 export {
   getConfig,
   sendTransaction,
@@ -40,9 +40,12 @@ export {
 // 🏪 APP SLICE (Used for ConnectState)
 // ========================================
 
-// ConnectState enum used in frontend-nugget
+// ConnectState enum and state slice utilities
 export {
   ConnectState,
+  createStateSlice,
+  type PropertiesState,
+  type RequestError,
 } from './store/app-slice';
 
 // ========================================
@@ -61,6 +64,7 @@ export {
 // Only essential types
 export {
   type L2AccountData,
+  type L1AccountInfo,
 } from './types';
 
 // ========================================
@@ -137,4 +141,15 @@ Migration from Direct Imports:
 - Replace: import { ConnectState } from "zkwasm-minirollup-browser/dist/store/app-slice";  
 - With: import { ConnectState } from "zkwasm-minirollup-browser";
 */
+
+// ========================================
+// 🌐 RPC CLIENT (Network Communication)
+// ========================================
+
+// RPC client functions used in frontend-nugget
+export {
+  getRpcUrl,
+  setRpcUrl,
+  getRpc
+} from './rpc/client';
 
