@@ -16,7 +16,7 @@ export function getRpcUrl(): string {
 
 // Function to set the RPC URL
 export function setRpcUrl(): void {
-  rpcUrl = process.env.URL ?? `${protocol}//${hostname}` + ":3000";
+  rpcUrl = process.env.REACT_APP_URL ?? `${protocol}//${hostname}` + ":3000";
   rpcInstance = new ZKWasmAppRpc(rpcUrl);
 }
 
