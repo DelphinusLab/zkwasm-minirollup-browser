@@ -19,12 +19,7 @@ export function getRpcUrl(): string {
 export function setRpcUrl(): void {
   // Use unified environment variable handling
   const envRpcUrl = getEnvRpcUrl();
-  console.log('Environment RPC URL:', envRpcUrl);
-  console.log('Process env REACT_APP_URL:', process.env.REACT_APP_URL);
-  console.log('Import meta env REACT_APP_URL:', (import.meta as any)?.env?.REACT_APP_URL);
-  
   rpcUrl = envRpcUrl || `${protocol}//${hostname}` + ":3000";
-  console.log('Final RPC URL:', rpcUrl);
   rpcInstance = new ZKWasmAppRpc(rpcUrl);
 }
 

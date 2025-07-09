@@ -45,7 +45,6 @@ export function getEnvConfig(): EnvConfig {
 
     // 1. Check Node.js environment (process.env) - for Create React App, Next.js etc.
     if (typeof process !== 'undefined' && process.env) {
-      console.log('Using process.env for environment variables');
       const chainIdStr = cleanValue(process.env.REACT_APP_CHAIN_ID);
       const processConfig = {
         chainId: chainIdStr ? parseInt(chainIdStr) : config.chainId,
@@ -56,12 +55,10 @@ export function getEnvConfig(): EnvConfig {
         rpcUrl: cleanValue(process.env.REACT_APP_URL) || config.rpcUrl
       };
       config = { ...config, ...processConfig };
-      console.log('Config after process.env:', config);
     }
     
     // 2. Check Vite environment (import.meta.env) - merge with existing config
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-      console.log('Using import.meta.env for environment variables');
       const env = (import.meta as any).env;
       
       const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID);
@@ -74,12 +71,10 @@ export function getEnvConfig(): EnvConfig {
         rpcUrl: cleanValue(env.REACT_APP_URL) || config.rpcUrl
       };
       config = { ...config, ...viteConfig };
-      console.log('Config after import.meta.env:', config);
     }
     
     // 3. Check global variables (for certain build tools)
     if (typeof window !== 'undefined' && (window as any).__ENV__) {
-      console.log('Using global __ENV__ for environment variables');
       const env = (window as any).__ENV__;
       
       const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID);
@@ -92,12 +87,10 @@ export function getEnvConfig(): EnvConfig {
         rpcUrl: cleanValue(env.REACT_APP_URL) || config.rpcUrl
       };
       config = { ...config, ...globalConfig };
-      console.log('Config after global __ENV__:', config);
     }
     
     // 4. Check custom global variables
     if (typeof window !== 'undefined' && (window as any).APP_CONFIG) {
-      console.log('Using custom APP_CONFIG for environment variables');
       const appConfig = (window as any).APP_CONFIG;
       const customConfig = {
         chainId: appConfig.chainId ? parseInt(appConfig.chainId) : config.chainId,
@@ -108,10 +101,8 @@ export function getEnvConfig(): EnvConfig {
         rpcUrl: appConfig.rpcUrl || config.rpcUrl
       };
       config = { ...config, ...customConfig };
-      console.log('Config after custom APP_CONFIG:', config);
     }
     
-    console.log('Final config:', config);
     return config;
     
   } catch (error) {
