@@ -8,6 +8,7 @@ function getProjectConfig() {
     return {
       walletConnectProjectId: (window as any).ENV.REACT_APP_WALLETCONNECT_PROJECT_ID,
       chainId: parseInt((window as any).ENV.REACT_APP_CHAIN_ID || '1'),
+      rpcUrl: (window as any).ENV.REACT_APP_URL,
     };
   }
   
@@ -16,6 +17,7 @@ function getProjectConfig() {
     return {
       walletConnectProjectId: process.env.REACT_APP_WALLETCONNECT_PROJECT_ID,
       chainId: parseInt(process.env.REACT_APP_CHAIN_ID || '1'),
+      rpcUrl: process.env.REACT_APP_URL,
     };
   }
   
@@ -23,6 +25,7 @@ function getProjectConfig() {
   return {
     walletConnectProjectId: '',
     chainId: 1,
+    rpcUrl: '',
   };
 }
 

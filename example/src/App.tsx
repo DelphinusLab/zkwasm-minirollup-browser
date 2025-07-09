@@ -241,7 +241,9 @@ function App() {
 {`REACT_APP_CHAIN_ID=11155111
 REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
 REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
-REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id`}
+REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+REACT_APP_URL=http://localhost:3000`
+}
               </pre>
               <p>You can copy from <code>env.example</code> and modify the values.</p>
             </div>

@@ -18,6 +18,7 @@ export interface EnvConfig {
   tokenContract: string;
   walletConnectId: string;
   mode: string;
+  rpcUrl: string; // Add RPC URL configuration
 }
 
 // Unified environment variable getter function
@@ -27,7 +28,8 @@ export function getEnvConfig(): EnvConfig {
     depositContract: '',
     tokenContract: '',
     walletConnectId: '',
-    mode: 'development'
+    mode: 'development',
+    rpcUrl: '' // Default empty string for rpcUrl
   };
 
 
@@ -49,7 +51,8 @@ export function getEnvConfig(): EnvConfig {
         depositContract: cleanValue(process.env.REACT_APP_DEPOSIT_CONTRACT),
         tokenContract: cleanValue(process.env.REACT_APP_TOKEN_CONTRACT),
         walletConnectId: cleanValue(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID),
-        mode: process.env.NODE_ENV || 'development'
+        mode: process.env.NODE_ENV || 'development',
+        rpcUrl: cleanValue(process.env.REACT_APP_URL) // Add rpcUrl from process.env
       };
       return config;
     }
@@ -70,7 +73,8 @@ export function getEnvConfig(): EnvConfig {
         depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT),
         tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT),
         walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID),
-        mode: env.MODE || 'development'
+        mode: env.MODE || 'development',
+        rpcUrl: cleanValue(env.REACT_APP_URL) // Add rpcUrl from import.meta.env
       };
         return config;
     }
@@ -91,7 +95,8 @@ export function getEnvConfig(): EnvConfig {
         depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT),
         tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT),
         walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID),
-        mode: env.MODE || 'development'
+        mode: env.MODE || 'development',
+        rpcUrl: cleanValue(env.REACT_APP_URL) // Add rpcUrl from global __ENV__
       };
     }
     
@@ -103,7 +108,8 @@ export function getEnvConfig(): EnvConfig {
         depositContract: config.depositContract || '',
         tokenContract: config.tokenContract || '',
         walletConnectId: config.walletConnectId || '',
-        mode: config.mode || 'development'
+        mode: config.mode || 'development',
+        rpcUrl: config.rpcUrl || '' // Add rpcUrl from custom global variables
       };
     }
     
@@ -133,6 +139,10 @@ export function getWalletConnectId(): string {
 
 export function getMode(): string {
   return getEnvConfig().mode;
+}
+
+export function getRpcUrl(): string {
+  return getEnvConfig().rpcUrl;
 }
 
 // Validate environment configuration

@@ -10,6 +10,8 @@ export {
 // Provider configuration - REQUIRED
 export {
   setProviderConfig,
+  withProvider,
+  type DelphinusProvider,
 } from "./providers/provider";
 
 // Main wallet hook - RECOMMENDED
@@ -65,7 +67,17 @@ export {
 export {
   type L2AccountData,
   type L1AccountInfo,
+  type AccountState,
 } from './types';
+
+// ========================================
+// 🔧 UTILITIES (Provider & Wallet Sync)
+// ========================================
+
+// Provider utilities
+export {
+  syncBrowserWalletState,
+} from './utils/provider';
 
 // ========================================
 // 📚 Usage Guide
@@ -153,6 +165,14 @@ export {
   getRpc
 } from './rpc/client';
 
+// Environment configuration functions
+export {
+  getEnvConfig,
+  getRpcUrl as getEnvRpcUrl,
+  validateEnvConfig,
+  type EnvConfig,
+} from './config/env-adapter';
+
 // ========================================
 // 🗄️ REDUX SUPPORT (Optional)
 // ========================================
@@ -165,5 +185,3 @@ export {
   useDispatch,
   ReduxProvider,
 } from './store';
-
-
