@@ -32,19 +32,16 @@ export function getEnvConfig(): EnvConfig {
     rpcUrl: '' // Default empty string for rpcUrl
   };
 
-
-
   try {
+    // Helper function to clean JSON.stringify'd values from Vite's define config
+    const cleanValue = (value: string | undefined): string => {
+      if (!value) return '';
+      // Remove surrounding quotes if present (from JSON.stringify)
+      return value.replace(/^"(.*)"$/, '$1');
+    };
+
     // 1. Priority check Node.js environment (process.env) - for Create React App, Next.js etc.
-    // This now includes variables loaded by dotenv and Vite's define config
-    if (typeof process !== 'undefined' && process.env && process.env.REACT_APP_WALLETCONNECT_PROJECT_ID) {
-      // Helper function to clean JSON.stringify'd values from Vite's define config
-      const cleanValue = (value: string | undefined): string => {
-        if (!value) return '';
-        // Remove surrounding quotes if present (from JSON.stringify)
-        return value.replace(/^"(.*)"$/, '$1');
-      };
-      
+    if (typeof process !== 'undefined' && process.env) {
       const chainIdStr = cleanValue(process.env.REACT_APP_CHAIN_ID) || '11155111';
       const config = {
         chainId: parseInt(chainIdStr),
@@ -60,12 +57,6 @@ export function getEnvConfig(): EnvConfig {
     // 2. Check Vite environment (import.meta.env) - fallback for Vite-specific variables
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
       const env = (import.meta as any).env;
-      // Helper function to clean JSON.stringify'd values
-      const cleanValue = (value: string | undefined): string => {
-        if (!value) return '';
-        // Remove surrounding quotes if present (from JSON.stringify)
-        return value.replace(/^"(.*)"$/, '$1');
-      };
       
       const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID) || '11155111';
       const config = {
@@ -76,18 +67,12 @@ export function getEnvConfig(): EnvConfig {
         mode: env.MODE || 'development',
         rpcUrl: cleanValue(env.REACT_APP_URL) // Add rpcUrl from import.meta.env
       };
-        return config;
+      return config;
     }
     
     // 3. Check global variables (for certain build tools)
     if (typeof window !== 'undefined' && (window as any).__ENV__) {
       const env = (window as any).__ENV__;
-      // Helper function to clean JSON.stringify'd values
-      const cleanValue = (value: string | undefined): string => {
-        if (!value) return '';
-        // Remove surrounding quotes if present (from JSON.stringify)
-        return value.replace(/^"(.*)"$/, '$1');
-      };
       
       const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID) || '11155111';
       return {
