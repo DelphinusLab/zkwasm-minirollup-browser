@@ -1,4 +1,5 @@
 import { ZKWasmAppRpc } from 'zkwasm-minirollup-rpc';
+import { getRpcUrl as getEnvRpcUrl } from '../config/env-adapter';
 
 // Get the current URL components
 const currentLocation = window.location;
@@ -16,7 +17,9 @@ export function getRpcUrl(): string {
 
 // Function to set the RPC URL
 export function setRpcUrl(): void {
-  rpcUrl = process.env.REACT_APP_URL ?? `${protocol}//${hostname}` + ":3000";
+  // Use unified environment variable handling
+  const envRpcUrl = getEnvRpcUrl();
+  rpcUrl = envRpcUrl || `${protocol}//${hostname}` + ":3000";
   rpcInstance = new ZKWasmAppRpc(rpcUrl);
 }
 
