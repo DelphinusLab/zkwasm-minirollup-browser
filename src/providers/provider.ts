@@ -362,7 +362,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     const tempProvider = new BrowserProvider({
       request: async () => {
         throw new Error("Provider not initialized. Please call initialize() first.");
-      }
+    }
     } as any, "any");
     
     super(tempProvider);
@@ -431,8 +431,8 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       // But only for browser provider, not for WalletConnect
       if (hasEthereumProvider()) {
         console.warn('⚠️ Falling back to window.ethereum - this may cause state inconsistencies with WalletConnect');
-        return new BrowserProvider(window.ethereum, "any");
-      }
+    return new BrowserProvider(window.ethereum, "any");
+  }
 
       throw new Error("No Ethereum provider available. Please reconnect your wallet.");
       
@@ -464,22 +464,22 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       
       // Replace the temporary provider with the correct one
       (this as any).provider = correctProvider;
-      
+
       // Update internal state
-      this.account = account;
-      this.chainId = chainId;
-      
+    this.account = account;
+    this.chainId = chainId;
+    
       // Get signer
-      try {
+    try {
         this.signer = await this.provider.getSigner(account);
-        
+      
         // Verify signer address matches expected address
-        const signerAddress = await this.signer.getAddress();
-        if (signerAddress.toLowerCase() !== account.toLowerCase()) {
+      const signerAddress = await this.signer.getAddress();
+      if (signerAddress.toLowerCase() !== account.toLowerCase()) {
           console.warn('⚠️ Signer address mismatch:', {
-            signerAddress,
-            expectedAddress: account
-          });
+          signerAddress,
+          expectedAddress: account
+        });
           
           // Try to get signer without specifying address
           this.signer = await this.provider.getSigner();
@@ -505,7 +505,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     }
   }
 
-  // Create genuine RainbowKit style connection modal
+    // Create genuine RainbowKit style connection modal
   private async connectWithRainbowKit(): Promise<string> {
     try {
       // Get shared configuration, throw error if none exists
@@ -791,7 +791,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   close() {
     // Clean up resources
     if (this.signer) {
-      this.signer = null;
+    this.signer = null;
     }
     this.account = null;
     this.chainId = null;

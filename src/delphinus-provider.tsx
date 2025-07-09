@@ -304,7 +304,7 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
         <RainbowKitProvider>
           <ReduxProvider store={store}>
             <DelphinusContext.Provider value={{ appName }}>
-              {children}
+            {children}
             </DelphinusContext.Provider>
           </ReduxProvider>
         </RainbowKitProvider>

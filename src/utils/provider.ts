@@ -69,7 +69,7 @@ export async function initializeRainbowProviderIfNeeded(
               'WALLET_RECONNECT_REQUIRED',
               initError
             );
-          }
+      }
         } else {
           throw initError;
         }

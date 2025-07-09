@@ -40,38 +40,41 @@ export function getEnvConfig(): EnvConfig {
       return value.replace(/^"(.*)"$/, '$1');
     };
 
-    // 1. Priority check Node.js environment (process.env) - for Create React App, Next.js etc.
+    // Start with default config
+    let config = { ...defaultConfig };
+
+    // 1. Check Node.js environment (process.env) - for Create React App, Next.js etc.
     if (typeof process !== 'undefined' && process.env) {
       console.log('Using process.env for environment variables');
-      const chainIdStr = cleanValue(process.env.REACT_APP_CHAIN_ID) || '11155111';
-      const config = {
-        chainId: parseInt(chainIdStr),
-        depositContract: cleanValue(process.env.REACT_APP_DEPOSIT_CONTRACT),
-        tokenContract: cleanValue(process.env.REACT_APP_TOKEN_CONTRACT),
-        walletConnectId: cleanValue(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID),
-        mode: process.env.NODE_ENV || 'development',
-        rpcUrl: cleanValue(process.env.REACT_APP_URL) // Add rpcUrl from process.env
+      const chainIdStr = cleanValue(process.env.REACT_APP_CHAIN_ID);
+      const processConfig = {
+        chainId: chainIdStr ? parseInt(chainIdStr) : config.chainId,
+        depositContract: cleanValue(process.env.REACT_APP_DEPOSIT_CONTRACT) || config.depositContract,
+        tokenContract: cleanValue(process.env.REACT_APP_TOKEN_CONTRACT) || config.tokenContract,
+        walletConnectId: cleanValue(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID) || config.walletConnectId,
+        mode: process.env.NODE_ENV || config.mode,
+        rpcUrl: cleanValue(process.env.REACT_APP_URL) || config.rpcUrl
       };
-      console.log('Config from process.env:', config);
-      return config;
+      config = { ...config, ...processConfig };
+      console.log('Config after process.env:', config);
     }
     
-    // 2. Check Vite environment (import.meta.env) - fallback for Vite-specific variables
+    // 2. Check Vite environment (import.meta.env) - merge with existing config
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
       console.log('Using import.meta.env for environment variables');
       const env = (import.meta as any).env;
       
-      const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID) || '11155111';
-      const config = {
-        chainId: parseInt(chainIdStr),
-        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT),
-        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT),
-        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID),
-        mode: env.MODE || 'development',
-        rpcUrl: cleanValue(env.REACT_APP_URL) // Add rpcUrl from import.meta.env
+      const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID);
+      const viteConfig = {
+        chainId: chainIdStr ? parseInt(chainIdStr) : config.chainId,
+        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT) || config.depositContract,
+        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT) || config.tokenContract,
+        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID) || config.walletConnectId,
+        mode: env.MODE || config.mode,
+        rpcUrl: cleanValue(env.REACT_APP_URL) || config.rpcUrl
       };
-      console.log('Config from import.meta.env:', config);
-      return config;
+      config = { ...config, ...viteConfig };
+      console.log('Config after import.meta.env:', config);
     }
     
     // 3. Check global variables (for certain build tools)
@@ -79,36 +82,37 @@ export function getEnvConfig(): EnvConfig {
       console.log('Using global __ENV__ for environment variables');
       const env = (window as any).__ENV__;
       
-      const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID) || '11155111';
-      const config = {
-        chainId: parseInt(chainIdStr),
-        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT),
-        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT),
-        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID),
-        mode: env.MODE || 'development',
-        rpcUrl: cleanValue(env.REACT_APP_URL) // Add rpcUrl from global __ENV__
+      const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID);
+      const globalConfig = {
+        chainId: chainIdStr ? parseInt(chainIdStr) : config.chainId,
+        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT) || config.depositContract,
+        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT) || config.tokenContract,
+        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID) || config.walletConnectId,
+        mode: env.MODE || config.mode,
+        rpcUrl: cleanValue(env.REACT_APP_URL) || config.rpcUrl
       };
-      console.log('Config from global __ENV__:', config);
-      return config;
+      config = { ...config, ...globalConfig };
+      console.log('Config after global __ENV__:', config);
     }
     
     // 4. Check custom global variables
     if (typeof window !== 'undefined' && (window as any).APP_CONFIG) {
       console.log('Using custom APP_CONFIG for environment variables');
-      const config = (window as any).APP_CONFIG;
-      const result = {
-        chainId: parseInt(config.chainId || '11155111'),
-        depositContract: config.depositContract || '',
-        tokenContract: config.tokenContract || '',
-        walletConnectId: config.walletConnectId || '',
-        mode: config.mode || 'development',
-        rpcUrl: config.rpcUrl || '' // Add rpcUrl from custom global variables
+      const appConfig = (window as any).APP_CONFIG;
+      const customConfig = {
+        chainId: appConfig.chainId ? parseInt(appConfig.chainId) : config.chainId,
+        depositContract: appConfig.depositContract || config.depositContract,
+        tokenContract: appConfig.tokenContract || config.tokenContract,
+        walletConnectId: appConfig.walletConnectId || config.walletConnectId,
+        mode: appConfig.mode || config.mode,
+        rpcUrl: appConfig.rpcUrl || config.rpcUrl
       };
-      console.log('Config from custom APP_CONFIG:', result);
-      return result;
+      config = { ...config, ...customConfig };
+      console.log('Config after custom APP_CONFIG:', config);
     }
     
-    console.log('No environment variables found, using default config');
+    console.log('Final config:', config);
+    return config;
     
   } catch (error) {
     console.warn('Failed to get environment variables:', error);

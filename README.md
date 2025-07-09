@@ -408,21 +408,21 @@ function AdvancedWalletComponent() {
   return (
     <div>
       <p>Status: {status}</p>
-      <p>Connected: {isConnected ? 'Yes' : 'No'}</p>
+        <p>Connected: {isConnected ? 'Yes' : 'No'}</p>
       <p>Address: {address}</p>
       
       <button onClick={handleConnect} disabled={isLoading}>
         {isLoading ? 'Processing...' : 'Connect & Login L1'}
-      </button>
+        </button>
       
       {isL1Connected && (
         <button onClick={handleL2Login}>Login L2</button>
-      )}
-      
-      {isL1Connected && isL2Connected && (
+          )}
+          
+          {isL1Connected && isL2Connected && (
         <button onClick={handleDeposit}>Deposit</button>
-      )}
-      
+          )}
+          
       <button onClick={() => reset(dispatch)}>Reset</button>
     </div>
   );
@@ -532,20 +532,20 @@ function DiagnosticComponent() {
     connectL2 
   } = useWalletContext();
 
-  const handleConnect = async () => {
-    try {
+const handleConnect = async () => {
+  try {
       await connectL1();
-    } catch (error) {
-      if (error.message.includes('User rejected')) {
-        alert('Please approve the connection in your wallet');
-      } else if (error.message.includes('network')) {
-        alert('Please check your network connection');
-      } else {
-        console.error('Connection error:', error);
-        alert(`Connection failed: ${error.message}`);
-      }
+  } catch (error) {
+    if (error.message.includes('User rejected')) {
+      alert('Please approve the connection in your wallet');
+    } else if (error.message.includes('network')) {
+      alert('Please check your network connection');
+    } else {
+      console.error('Connection error:', error);
+      alert(`Connection failed: ${error.message}`);
     }
-  };
+  }
+};
 
   const handleL2Connect = async () => {
     try {
@@ -612,7 +612,7 @@ function PIDDiagnostic() {
       } catch (error) {
         console.error('Failed to get PID:', error);
       }
-    }
+  }
   }, [l2Account, playerId]);
 
   return (
