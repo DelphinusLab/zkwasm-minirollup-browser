@@ -314,7 +314,13 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
 };
 
 // Simplified configuration function for creating custom store
-export function createDelphinusStore(additionalReducers?: any) {
+export function createDelphinusStore(
+  additionalReducers?: any,
+  additionalIgnoredActions: string[] = [],
+  additionalIgnoredActionsPaths: string[] = [],
+  additionalIgnoredPaths: string[] = [],
+  additionalIgnoredNestedPaths: string[] = []
+) {
   return configureStore({
     reducer: {
       account: accountSliceReducer,
@@ -349,6 +355,7 @@ export function createDelphinusStore(additionalReducers?: any) {
             // Redux action creators
             'account/setL1Account',
             'account/resetAccountState',
+            ...additionalIgnoredActions,
           ],
           // Ignore specific paths in actions
           ignoredActionsPaths: [
@@ -357,17 +364,20 @@ export function createDelphinusStore(additionalReducers?: any) {
             'payload.l2account',
             'payload.l1Account',
             'meta.arg.l2account',
-            'meta.arg.l1account'
+            "meta.arg.l1account",
+            ...additionalIgnoredActionsPaths,
           ],
           // Ignore specific paths in state
           ignoredPaths: [
             'account.l2account',
-            'account.l1Account'
+            "account.l1Account",
+            ...additionalIgnoredPaths,
           ],
           // Ignore nested value checks
           ignoredNestedPaths: [
             'account.l2account.pubkey',
-            'account.l2account.#prikey'
+            "account.l2account.#prikey",
+            ...additionalIgnoredNestedPaths,
           ],
           // Completely disable serialization check (most lenient option)
           warnAfter: 128,
