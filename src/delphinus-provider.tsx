@@ -18,6 +18,7 @@ import {
   bitgetWallet,
   imTokenWallet,
   injectedWallet,
+  binanceWallet,
   safeWallet,
   argentWallet,
   braveWallet,
@@ -108,7 +109,7 @@ export function createDelphinusRainbowKitConfig(options: {
         wallets: [
           metaMaskWallet,
           walletConnectWallet,
-          coinbaseWallet,
+          binanceWallet,
           rainbowWallet,
         ],
       },
@@ -116,6 +117,7 @@ export function createDelphinusRainbowKitConfig(options: {
         groupName: 'Mobile Wallets',
         wallets: [
           trustWallet,
+          coinbaseWallet,
           tokenPocketWallet,
           phantomWallet,
           okxWallet,
