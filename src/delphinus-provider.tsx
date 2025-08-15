@@ -9,7 +9,6 @@ import {
 import { 
   metaMaskWallet,
   walletConnectWallet,
-  coinbaseWallet,
   rainbowWallet,
   trustWallet,
   ledgerWallet,
@@ -128,7 +127,6 @@ export function createDelphinusRainbowKitConfig(options: {
         wallets: [
           bitgetWallet,
           rainbowWallet,
-          coinbaseWallet,
           tokenPocketWallet,
           phantomWallet,
           walletConnectWallet,
