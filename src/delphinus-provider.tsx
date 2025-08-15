@@ -75,12 +75,20 @@ export function createDelphinusRainbowKitConfig(options: {
             name: 'BNB Smart Chain',
             nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
             rpcUrls: {
-              default: { http: ['https://bsc-dataseed.binance.org'] },
+              default: { 
+                http: [
+                  'https://bsc-dataseed1.binance.org',
+                  'https://bsc-dataseed2.binance.org', 
+                  'https://bsc-dataseed.bnbchain.org'
+                ] 
+              },
             },
             blockExplorers: {
               default: { name: 'BscScan', url: 'https://bscscan.com' },
             },
           } as Chain,
+          sepolia, // 添加测试网支持
+          mainnet, // 添加主网支持
         ];
       default:
         return [sepolia, mainnet]; // Default includes testnet and mainnet
@@ -98,6 +106,8 @@ export function createDelphinusRainbowKitConfig(options: {
     
     throw new Error(`${errorMessage} ${instructionMessage} ${getIdMessage}`);
   }
+
+  console.log("projectId", projectId);
 
   cachedConfig = getDefaultConfig({
     appName: options.appName, // Use provided appName directly, no default value
