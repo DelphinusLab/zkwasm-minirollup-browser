@@ -405,16 +405,24 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       const { reconnect } = await import('wagmi/actions');
       
       try {
-        // Attempt to reconnect to restore WalletConnect session
-        const reconnectResult = await reconnect(this.config);
+        // 设置超时限制，避免无限等待
+        const reconnectPromise = reconnect(this.config);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Reconnect timeout')), 10000)
+        );
         
-        if (reconnectResult.length > 0) {
+        const reconnectResult = await Promise.race([reconnectPromise, timeoutPromise]) as any[];
+        
+        if (reconnectResult && reconnectResult.length > 0) {
           console.log('✅ Successfully reconnected, getting provider...');
+          
+          // 等待连接稳定
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
           // Get the reconnected account
           const reconnectedAccount = getAccount(this.config);
           
-          if (reconnectedAccount.connector) {
+          if (reconnectedAccount.connector && reconnectedAccount.isConnected) {
             const provider = await reconnectedAccount.connector.getProvider();
             
             if (provider) {
@@ -424,7 +432,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           }
         }
       } catch (reconnectError) {
-        console.warn('Reconnection failed:', reconnectError);
+        console.warn('Reconnection failed (this is normal for first-time connections):', reconnectError);
       }
 
       // If all else fails, check if we have window.ethereum as last resort
@@ -434,7 +442,14 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     return new BrowserProvider(window.ethereum, "any");
   }
 
-      throw new Error("No Ethereum provider available. Please reconnect your wallet.");
+      // 提供详细的错误信息
+      const errorDetails = {
+        hasWindowEthereum: !!window.ethereum,
+        wagmiConnectorCount: this.config?.connectors?.length || 0,
+        configExists: !!this.config
+      };
+      console.error('Provider initialization failed with details:', errorDetails);
+      throw new Error(`No Ethereum provider available. Please reconnect your wallet. Debug: ${JSON.stringify(errorDetails)}`);
       
     } catch (error) {
       console.error('Failed to get provider:', error);
@@ -821,7 +836,19 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
 
   async getJsonRpcSigner(): Promise<JsonRpcSigner> {
     if (!this.signer) {
-      throw new Error("Signer not initialized. Please connect wallet first.");
+      // 尝试重新获取 signer
+      if (this.account && this.isInitialized) {
+        try {
+          const correctProvider = await this.getCorrectProvider();
+          this.signer = await correctProvider.getSigner(this.account);
+          console.log('✅ Re-obtained signer successfully');
+        } catch (error) {
+          console.error('Failed to re-obtain signer:', error);
+          throw new Error("Signer not available. Please reconnect your wallet.");
+        }
+      } else {
+        throw new Error("Signer not initialized. Please connect wallet first.");
+      }
     }
     
     return this.signer;
