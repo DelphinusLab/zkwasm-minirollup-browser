@@ -73,21 +73,10 @@ function getTargetChain() {
 // Configure supported chains
 const targetChain = getTargetChain();
 
-// 添加多链支持以解决 WalletConnect 兼容性问题
-const supportedChains = [
-  targetChain,
-  ...(targetChain.id !== 1 ? [mainnet] : []),
-  ...(targetChain.id !== 11155111 ? [sepolia] : []),
-  ...(targetChain.id !== 56 ? [bsc] : []),
-];
-
 export const wagmiConfig = createConfig({
-  chains: supportedChains as any, // 支持多链以提高 WalletConnect 兼容性
+  chains: [targetChain], // Only include target chain
   transports: {
     [targetChain.id]: http(),
-    1: http(), // Mainnet
-    11155111: http(), // Sepolia
-    56: http(), // BSC
   },
   ssr: false, // Set to false if your app doesn't use SSR
 });

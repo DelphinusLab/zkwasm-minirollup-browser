@@ -9,6 +9,7 @@ import {
 import { 
   metaMaskWallet,
   walletConnectWallet,
+  coinbaseWallet,
   rainbowWallet,
   trustWallet,
   ledgerWallet,
@@ -54,13 +55,13 @@ export function createDelphinusRainbowKitConfig(options: {
 
   // Get configuration from environment variables
   const envConfig = getEnvConfig();
-  
+
   // Select chains based on chainId from environment variables
   const getChains = (): readonly [Chain, ...Chain[]] => {
     if (options?.chains) {
       return options.chains;
     }
-    
+
     // Select default chains based on chainId from environment variables
     switch (envConfig.chainId) {
       case 1:
@@ -74,20 +75,20 @@ export function createDelphinusRainbowKitConfig(options: {
             name: 'BNB Smart Chain',
             nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
             rpcUrls: {
-              default: { 
-                http: [
-                  'https://bsc-dataseed1.binance.org',
-                  'https://bsc-dataseed2.binance.org', 
-                  'https://bsc-dataseed.bnbchain.org'
-                ] 
-              },
+              default: { http: ['https://bsc-dataseed.binance.org'] },
+
+
+
+
+
+
             },
             blockExplorers: {
               default: { name: 'BscScan', url: 'https://bscscan.com' },
             },
           } as Chain,
-          sepolia, // 添加测试网支持
-          mainnet, // 添加主网支持
+
+
         ];
       default:
         return [sepolia, mainnet]; // Default includes testnet and mainnet
@@ -102,11 +103,11 @@ export function createDelphinusRainbowKitConfig(options: {
     const errorMessage = 'WalletConnect Project ID is required for mobile wallet connections!';
     const instructionMessage = 'Please set REACT_APP_WALLETCONNECT_PROJECT_ID in your .env file';
     const getIdMessage = 'Get your Project ID at: https://cloud.walletconnect.com/';
-    
+
     throw new Error(`${errorMessage} ${instructionMessage} ${getIdMessage}`);
   }
 
-  console.log("projectId", projectId);
+
 
   cachedConfig = getDefaultConfig({
     appName: options.appName, // Use provided appName directly, no default value
@@ -127,6 +128,7 @@ export function createDelphinusRainbowKitConfig(options: {
         wallets: [
           bitgetWallet,
           rainbowWallet,
+          coinbaseWallet,
           tokenPocketWallet,
           phantomWallet,
           walletConnectWallet,
@@ -395,5 +397,3 @@ export function createDelphinusStore(
       }),
   });
 }
-
-export default DelphinusProvider; 
