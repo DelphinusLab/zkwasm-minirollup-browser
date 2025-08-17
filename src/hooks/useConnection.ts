@@ -23,17 +23,89 @@ export function useConnection(): ConnectionState {
     const updateConnectionState = async () => {
       // First try to use wagmi state
       if (wagmiIsConnected && wagmiAddress) {
-    const newState = {
-      isConnected: wagmiIsConnected,
-      address: wagmiAddress,
-      chainId: wagmiChainId
-    };
+        // Enhanced WalletConnect session validation for auto-reconnected sessions
+        try {
+          if (hasEthereumProvider()) {
+            console.log('🔍 Validating auto-reconnected session...');
+            
+            // Test if provider is responsive with a short timeout
+            const accountsPromise = window.ethereum!.request({ method: 'eth_accounts' });
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Session validation timeout')), 5000)
+            );
+            
+            const accounts = await Promise.race([accountsPromise, timeoutPromise]);
+            
+            // Validate account match
+            if (!accounts || accounts.length === 0) {
+              console.warn('⚠️ No accounts returned, session invalid');
+              throw new Error('No accounts available');
+            }
+            
+            if (accounts[0].toLowerCase() !== wagmiAddress.toLowerCase()) {
+              console.warn('⚠️ Account mismatch, session invalid', {
+                expected: wagmiAddress,
+                actual: accounts[0]
+              });
+              throw new Error('Account mismatch');
+            }
+            
+            // Test if we can make a simple RPC call
+            try {
+              await Promise.race([
+                window.ethereum!.request({ method: 'eth_chainId' }),
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Chain ID timeout')), 3000)
+                )
+              ]);
+              console.log('✅ Session validation passed');
+            } catch (rpcError) {
+              console.warn('⚠️ RPC call failed, session might be stale');
+              throw rpcError;
+            }
+            
+          }
+        } catch (error) {
+          console.warn('❌ Session validation failed, clearing invalid session:', error);
+          
+          // Clear invalid session immediately
+          const { clearProviderInstance } = await import('../providers/provider');
+          const { clearWalletConnectStorage: clearStorage } = await import('../delphinus-provider');
+          
+          clearStorage();
+          clearProviderInstance();
+          
+          // Force disconnect from wagmi as well
+          try {
+            const { disconnect } = await import('wagmi/actions');
+            const { getSharedWagmiConfig } = await import('../providers/provider');
+            const config = getSharedWagmiConfig();
+            if (config) {
+              disconnect(config);
+            }
+          } catch (disconnectError) {
+            console.warn('Failed to disconnect wagmi:', disconnectError);
+          }
+          
+          setConnectionState({
+            isConnected: false,
+            address: undefined,
+            chainId: undefined
+          });
+          return;
+        }
+        
+        const newState = {
+          isConnected: wagmiIsConnected,
+          address: wagmiAddress,
+          chainId: wagmiChainId
+        };
 
-    setConnectionState(prevState => {
-      const hasChanged = 
-        prevState.isConnected !== newState.isConnected ||
-        prevState.address !== newState.address ||
-        prevState.chainId !== newState.chainId;
+        setConnectionState(prevState => {
+          const hasChanged = 
+            prevState.isConnected !== newState.isConnected ||
+            prevState.address !== newState.address ||
+            prevState.chainId !== newState.chainId;
 
           return hasChanged ? newState : prevState;
         });

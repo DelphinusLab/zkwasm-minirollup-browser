@@ -52,6 +52,10 @@ export function createDelphinusRainbowKitConfig(options: {
     return cachedConfig;
   }
 
+  // Validate and clean WalletConnect sessions before creating config
+  // This runs synchronously on first load, detailed validation happens during reconnect
+  const hasValidSessions = validateAndCleanWalletConnectStorage();
+
   // Get configuration from environment variables
   const envConfig = getEnvConfig();
 
@@ -167,11 +171,106 @@ export function createDelphinusRainbowKitConfig(options: {
 }
 
 // Reset cached configuration (for development debugging)
-export function resetDelphinusConfig() {
+export async function resetDelphinusConfig() {
   cachedConfig = null;
   defaultStore = null;
-  const { WagmiConfigManager } = require('./providers/provider');
-  WagmiConfigManager.getInstance().clearConfig();
+  try {
+    const { WagmiConfigManager } = await import('./providers/provider');
+    WagmiConfigManager.getInstance().clearConfig();
+  } catch (error) {
+    console.warn('Failed to reset Delphinus config:', error);
+  }
+}
+
+// Validate WalletConnect sessions and clear invalid ones
+export async function validateAndCleanWalletConnectStorage(): Promise<boolean> {
+  try {
+    console.log('🔍 Validating WalletConnect sessions...');
+    
+    // Check if there are any WalletConnect sessions
+    const wcKeys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('walletconnect') || key.includes('wc@2'))) {
+        wcKeys.push(key);
+      }
+    }
+    
+    if (wcKeys.length === 0) {
+      console.log('✅ No WalletConnect sessions found');
+      return true; // No sessions to validate
+    }
+    
+    // Try to validate sessions by checking if they're responsive
+    let hasValidSession = false;
+    
+    for (const key of wcKeys) {
+      try {
+        const sessionData = localStorage.getItem(key);
+        if (sessionData) {
+          const parsed = JSON.parse(sessionData);
+          
+          // Check if session looks valid (has required properties)
+          if (parsed && (parsed.accounts || parsed.sessionProperties || parsed.topic)) {
+            console.log('🔍 Found session data for key:', key);
+            
+            // Quick validation - if we can parse it and it has session-like data, 
+            // we'll let wagmi try to validate it
+            hasValidSession = true;
+          } else {
+            console.log('🗑️ Invalid session data for key:', key);
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (error) {
+        console.log('🗑️ Corrupted session data for key:', key);
+        localStorage.removeItem(key);
+      }
+    }
+    
+    if (hasValidSession) {
+      console.log('✅ Found potentially valid sessions, allowing auto-reconnect');
+      return true;
+    } else {
+      console.log('🧹 No valid sessions found, clearing all WalletConnect storage');
+      clearWalletConnectStorage();
+      return false;
+    }
+    
+  } catch (error) {
+    console.warn('Failed to validate WalletConnect sessions:', error);
+    // On validation error, clear everything to be safe
+    clearWalletConnectStorage();
+    return false;
+  }
+}
+
+// Clear WalletConnect session storage (used when sessions are confirmed invalid)
+export function clearWalletConnectStorage() {
+  try {
+    // Clear all WalletConnect related localStorage
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('walletconnect') || key.includes('wc@2') || key.includes('WALLETCONNECT'))) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      console.log('🧹 Cleared WalletConnect storage key:', key);
+    });
+    
+    // Also clear wagmi storage
+    localStorage.removeItem('wagmi.store');
+    localStorage.removeItem('wagmi.wallet');
+    localStorage.removeItem('wagmi.connected');
+    
+    console.log('✅ WalletConnect storage cleared');
+  } catch (error) {
+    console.warn('Failed to clear WalletConnect storage:', error);
+  }
 }
 
 // Create default query client

@@ -11,8 +11,16 @@ export {
 export {
   setProviderConfig,
   withProvider,
+  clearProviderInstance,
   type DelphinusProvider,
 } from "./providers/provider";
+
+// WalletConnect session management
+export {
+  clearWalletConnectStorage,
+  validateAndCleanWalletConnectStorage,
+  resetDelphinusConfig,
+} from './delphinus-provider';
 
 // Main wallet hook - RECOMMENDED
 export {

@@ -93,36 +93,46 @@ export function useWalletActions(
    * @returns Promise<L2AccountInfo>
    */
   const loginL2 = useCallback(async (dispatch: AppDispatch, messageToSign: string) => {
+    console.log('🚀 loginL2 called with:', { address, chainId, messageToSign });
+    
     if (!messageToSign) {
+      console.error('❌ No messageToSign provided');
       throw new Error('messageToSign is required for L2 login');
     }
     
     if (!address) {
+      console.error('❌ No address available');
       throw createError(ERROR_MESSAGES.NO_WALLET, 'NO_WALLET');
     }
 
     try {
+      console.log('🔄 Starting L2 login process...');
       // Set to loading state
       dispatch(loginL2AccountAsync.pending('', messageToSign));
       
       // Ensure provider uses latest state
+      console.log('🔧 Initializing rainbow provider...');
       await initializeRainbowProviderIfNeeded(address, chainId);
       
+      console.log('🎯 Calling withProvider...');
       const result = await withProvider(async (provider) => {
+        console.log('📋 Inside withProvider, calling provider.sign()...');
         // Use provider to sign - Note: should sign messageToSign, not address
         const signature = await provider.sign(messageToSign);
         
+        console.log('🔑 Got signature, creating L2Account...');
         // Create L2 account - use first 34 characters of signature (including 0x prefix)
         const l2Account = new L2AccountInfo(signature.substring(0, 34));
         
         return l2Account;
       });
       
+      console.log('✅ L2 login successful, updating Redux state...');
       // Update Redux state
       dispatch(loginL2AccountAsync.fulfilled(result, '', messageToSign));
       return result;
     } catch (error) {
-      console.error('L2 login failed:', error);
+      console.error('❌ L2 login failed:', error);
       dispatch(loginL2AccountAsync.rejected(error as any, '', messageToSign));
       throw error;
     }

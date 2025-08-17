@@ -806,13 +806,25 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   close() {
     // Clean up resources
     if (this.signer) {
-    this.signer = null;
+      this.signer = null;
     }
     this.account = null;
     this.chainId = null;
     this.isInitialized = false;
     
-    // Note: Don't destroy the provider as it may be used elsewhere
+    // Force clear wagmi config to reset WalletConnect state
+    try {
+      if (this.config) {
+        // Import disconnect function from wagmi
+        import('wagmi/actions').then(({ disconnect }) => {
+          if (this.config) {
+            disconnect(this.config);
+          }
+        }).catch(e => console.warn('Failed to disconnect wagmi:', e));
+      }
+    } catch (error) {
+      console.warn('Failed to clean up wagmi state:', error);
+    }
   }
 
   async onAccountChange<T>(_cb: (account: string) => T) {
@@ -842,8 +854,23 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           const correctProvider = await this.getCorrectProvider();
           this.signer = await correctProvider.getSigner(this.account);
           console.log('✅ Re-obtained signer successfully');
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to re-obtain signer:', error);
+          
+          // Check if it's a session error
+          if (error?.message?.includes('No matching session') || 
+              error?.code === 7001 || 
+              error?.message?.includes('session')) {
+            
+            // Clear current state immediately
+            this.signer = null;
+            this.isInitialized = false;
+            this.account = null;
+            this.chainId = null;
+            
+            throw new Error("WalletConnect session expired. Please disconnect and reconnect your wallet.");
+          }
+          
           throw new Error("Signer not available. Please reconnect your wallet.");
         }
       } else {
@@ -886,15 +913,47 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   }
 
   async sign(message: string): Promise<string> {
+    console.log('🔐 DelphinusRainbowConnector.sign() called with message:', message);
+    
     if (!this.signer) {
+      console.error('❌ Signer not initialized');
       throw new Error("Signer not initialized. Please connect wallet first.");
     }
     
+    console.log('📝 About to call signer.signMessage()...');
     try {
-      const signature = await this.signer.signMessage(message);
+      // Add timeout to detect hanging signatures (session disconnected)
+      const signaturePromise = this.signer.signMessage(message);
+      const timeoutPromise = new Promise<string>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("WalletConnect session expired. Please disconnect and reconnect your wallet."));
+        }, 10000); // 10 second timeout
+      });
+      
+      const signature = await Promise.race([signaturePromise, timeoutPromise]);
+      console.log('✅ Signature successful:', signature.substring(0, 20) + '...');
       return signature;
-    } catch (error) {
-      console.error('Signature failed:', error);
+    } catch (error: any) {
+      console.error('❌ Signature failed:', error);
+      
+      // Check if it's a WalletConnect session error or timeout
+      if (error?.message?.includes('No matching session') || 
+          error?.code === 7001 || 
+          error?.message?.includes('session expired') ||
+          error?.message?.includes('session')) {
+        
+        console.warn('💥 WalletConnect session expired, triggering disconnect...');
+        
+        // Clear current state immediately
+        this.signer = null;
+        this.isInitialized = false;
+        this.account = null;
+        this.chainId = null;
+        
+        // Throw specific error that triggers auto-disconnect
+        throw new Error("WalletConnect session expired. Please disconnect and reconnect your wallet.");
+      }
+      
       throw error;
     }
   }
