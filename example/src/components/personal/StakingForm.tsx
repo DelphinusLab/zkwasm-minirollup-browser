@@ -54,13 +54,7 @@ export const StakingForm = ({
   const maxAmount = type === 'stake' ? userBalance : stakedAmount;
   const isStaking = type === 'stake';
 
-  // Auto-connect L1 when RainbowKit connection is established
-  useEffect(() => {
-    if (isConnected && !l1Account) {
-      console.log('StakingForm: Auto-connecting L1 account...');
-      connectL1();
-    }
-  }, [isConnected, l1Account, connectL1]);
+  // Note: Auto-connect L1 logic is handled globally in Index.tsx to avoid duplicate calls
 
   // Auto-fill withdrawal address with user's L1 address for unstaking
   useEffect(() => {
