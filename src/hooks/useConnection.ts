@@ -23,76 +23,39 @@ export function useConnection(): ConnectionState {
     const updateConnectionState = async () => {
       // First try to use wagmi state
       if (wagmiIsConnected && wagmiAddress) {
-        // Enhanced WalletConnect session validation for auto-reconnected sessions
-        try {
-          if (hasEthereumProvider()) {
-            console.log('🔍 Validating auto-reconnected session...');
-            
-            // Test if provider is responsive with a short timeout
-            const accountsPromise = window.ethereum!.request({ method: 'eth_accounts' });
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Session validation timeout')), 5000)
-            );
-            
-            const accounts = await Promise.race([accountsPromise, timeoutPromise]);
-            
-            // Validate account match
-            if (!accounts || accounts.length === 0) {
-              console.warn('⚠️ No accounts returned, session invalid');
-              throw new Error('No accounts available');
-            }
-            
-            if (accounts[0].toLowerCase() !== wagmiAddress.toLowerCase()) {
-              console.warn('⚠️ Account mismatch, session invalid', {
-                expected: wagmiAddress,
-                actual: accounts[0]
-              });
-              throw new Error('Account mismatch');
-            }
-            
-            // Test if we can make a simple RPC call
-            try {
-              await Promise.race([
-                window.ethereum!.request({ method: 'eth_chainId' }),
-                new Promise((_, reject) => 
-                  setTimeout(() => reject(new Error('Chain ID timeout')), 3000)
-                )
-              ]);
-              console.log('✅ Session validation passed');
-            } catch (rpcError) {
-              console.warn('⚠️ RPC call failed, session might be stale');
-              throw rpcError;
-            }
-            
+        // Debug localStorage state
+        console.log('🔍 Debug localStorage validation cache:');
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('session_validated_')) {
+            console.log(`  ${key}: ${localStorage.getItem(key)}`);
           }
-        } catch (error) {
-          console.warn('❌ Session validation failed, clearing invalid session:', error);
-          
-          // Clear invalid session immediately
-          const { clearProviderInstance } = await import('../providers/provider');
-          const { clearWalletConnectStorage: clearStorage } = await import('../delphinus-provider');
-          
-          clearStorage();
-          clearProviderInstance();
-          
-          // Force disconnect from wagmi as well
-          try {
-            const { disconnect } = await import('wagmi/actions');
-            const { getSharedWagmiConfig } = await import('../providers/provider');
-            const config = getSharedWagmiConfig();
-            if (config) {
-              disconnect(config);
-            }
-          } catch (disconnectError) {
-            console.warn('Failed to disconnect wagmi:', disconnectError);
-          }
-          
-          setConnectionState({
-            isConnected: false,
-            address: undefined,
-            chainId: undefined
-          });
-          return;
+        }
+        
+        // Check if this is a fresh connection or auto-reconnection
+        const sessionValidationKey = `session_validated_${wagmiAddress}`;
+        const lastValidation = localStorage.getItem(sessionValidationKey);
+        const now = Date.now();
+        
+        console.log(`🔍 Session validation check:`, {
+          wagmiAddress,
+          sessionValidationKey,
+          lastValidation,
+          now,
+          timeDiff: lastValidation ? now - parseInt(lastValidation) : 'N/A'
+        });
+        
+        // Be more conservative: only consider it fresh if never validated OR more than 1 hour old
+        const isRecentConnection = !lastValidation || (now - parseInt(lastValidation)) > 60 * 60 * 1000;
+        
+        if (isRecentConnection) {
+          console.log('🔍 Fresh connection detected, marking as validated');
+          // For fresh connections, mark as validated and continue without extensive checks
+          localStorage.setItem(sessionValidationKey, now.toString());
+        } else {
+          console.log('🔄 Auto-reconnection detected, skipping validation');
+          // For auto-reconnect, just update the timestamp
+          localStorage.setItem(sessionValidationKey, now.toString());
         }
         
         const newState = {
@@ -227,15 +190,48 @@ export function useConnection(): ConnectionState {
       });
     };
 
+    const handleWalletConnectInvalid = async (event: CustomEvent) => {
+      console.warn('❌ WalletConnect session invalid event received:', event.detail);
+      
+      // Force disconnect from wagmi
+      try {
+        const { disconnect } = await import('wagmi/actions');
+        const { getSharedWagmiConfig } = await import('../providers/provider');
+        const config = getSharedWagmiConfig();
+        if (config) {
+          disconnect(config);
+        }
+      } catch (disconnectError) {
+        console.warn('Failed to disconnect wagmi after invalid session:', disconnectError);
+      }
+      
+      // Clear provider instance
+      try {
+        const { clearProviderInstance } = await import('../providers/provider');
+        clearProviderInstance();
+      } catch (clearError) {
+        console.warn('Failed to clear provider instance:', clearError);
+      }
+      
+      // Update connection state to disconnected
+      setConnectionState({
+        isConnected: false,
+        address: undefined,
+        chainId: undefined
+      });
+    };
+
           // Add event listeners
     window.ethereum!.on('accountsChanged', handleAccountsChanged);
     window.ethereum!.on('chainChanged', handleChainChanged);
-    window.addEventListener('walletConnected', handleWalletConnected as EventListener);
+    window.addEventListener('walletConnected', handleWalletConnected as unknown as EventListener);
+    window.addEventListener('walletconnect-session-invalid', handleWalletConnectInvalid as unknown as EventListener);
 
     return () => {
       window.ethereum!.removeListener('accountsChanged', handleAccountsChanged);
       window.ethereum!.removeListener('chainChanged', handleChainChanged);
-      window.removeEventListener('walletConnected', handleWalletConnected as EventListener);
+      window.removeEventListener('walletConnected', handleWalletConnected as unknown as EventListener);
+      window.removeEventListener('walletconnect-session-invalid', handleWalletConnectInvalid as unknown as EventListener);
     };
   }, [wagmiAddress, wagmiChainId, wagmiIsConnected]);
 
