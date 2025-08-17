@@ -133,6 +133,37 @@ export function useWalletActions(
       return result;
     } catch (error) {
       console.error('❌ L2 login failed:', error);
+      
+      // Handle WalletConnect session errors automatically
+      const errorMessage = (error as Error)?.message || String(error || '');
+      if (errorMessage.includes('session expired') || 
+          errorMessage.includes('No matching session') ||
+          errorMessage.includes('session_request') ||
+          errorMessage.includes('without any listeners')) {
+        console.log('🔄 WalletConnect session error detected, clearing invalid session...');
+        
+        try {
+          // Import clear functions dynamically
+          const { clearWalletConnectStorage } = await import('../delphinus-provider');
+          
+          // Clear WalletConnect storage
+          clearWalletConnectStorage();
+          
+          // Clear provider instance
+          clearProviderInstance();
+          
+          console.log('✅ Invalid session cleared, application should handle reconnection');
+          
+          // Create a more descriptive error for the application
+          const sessionError = new Error('WalletConnect session expired. Please reconnect your wallet.');
+          (sessionError as any).code = 'SESSION_EXPIRED';
+          dispatch(loginL2AccountAsync.rejected(sessionError as any, '', messageToSign));
+          throw sessionError;
+        } catch (clearError) {
+          console.warn('Failed to clear invalid session:', clearError);
+        }
+      }
+      
       dispatch(loginL2AccountAsync.rejected(error as any, '', messageToSign));
       throw error;
     }
