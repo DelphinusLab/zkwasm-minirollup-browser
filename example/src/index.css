@@ -1,0 +1,154 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ZKWASM Staking Platform Design System - Dark Theme with Purple/Blue Gradients */
+
+@layer base {
+  :root {
+    /* Dark Theme Base Colors */
+    --background: 222 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 84% 6%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 84% 6%;
+    --popover-foreground: 210 40% 98%;
+
+    /* ZKWASM Primary - Electric Purple */
+    --primary: 270 91% 65%;
+    --primary-foreground: 222 84% 4.9%;
+    --primary-glow: 270 100% 80%;
+
+    /* Secondary - Deep Space Blue */
+    --secondary: 222 84% 8%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Muted - Darker Variants */
+    --muted: 222 84% 7%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    /* Accent - Neon Blue */
+    --accent: 200 100% 60%;
+    --accent-foreground: 222 84% 4.9%;
+    --accent-glow: 200 100% 80%;
+
+    /* States */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+    --warning: 47 96% 53%;
+    --warning-foreground: 222 84% 4.9%;
+
+    /* UI Elements */
+    --border: 222 84% 12%;
+    --input: 222 84% 8%;
+    --ring: 270 91% 65%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(270 91% 65%), hsl(240 100% 70%));
+    --gradient-secondary: linear-gradient(135deg, hsl(222 84% 8%), hsl(222 84% 12%));
+    --gradient-accent: linear-gradient(135deg, hsl(200 100% 60%), hsl(270 91% 65%));
+    --gradient-background: linear-gradient(135deg, hsl(222 84% 4.9%), hsl(222 84% 3%));
+
+    /* Shadows & Glows */
+    --shadow-lg: 0 10px 30px -10px hsl(222 84% 2% / 0.8);
+    --shadow-glow: 0 0 40px hsl(270 91% 65% / 0.3);
+    --shadow-accent-glow: 0 0 30px hsl(200 100% 60% / 0.4);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-spring: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    background: var(--gradient-background);
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  /* Custom gradient backgrounds */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-secondary {
+    background: var(--gradient-secondary);
+  }
+  
+  .gradient-accent {
+    background: var(--gradient-accent);
+  }
+
+  /* Glow effects */
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .glow-accent {
+    box-shadow: var(--shadow-accent-glow);
+  }
+
+  /* Custom transitions */
+  .transition-smooth {
+    transition: var(--transition-smooth);
+  }
+  
+  .transition-spring {
+    transition: var(--transition-spring);
+  }
+
+  /* Card hover effects */
+  .card-hover {
+    @apply transition-smooth hover:scale-[1.02] hover:shadow-lg;
+  }
+
+  /* Animated background */
+  .animated-bg {
+    background: var(--gradient-background);
+    background-size: 400% 400%;
+    animation: gradientShift 8s ease infinite;
+  }
+
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Neon text effect */
+  .neon-text {
+    text-shadow: 0 0 10px hsl(var(--primary)), 0 0 20px hsl(var(--primary)), 0 0 30px hsl(var(--primary));
+  }
+}

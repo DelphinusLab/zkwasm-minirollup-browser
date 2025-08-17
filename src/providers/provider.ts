@@ -244,9 +244,12 @@ export class DelphinusBrowserConnector extends DelphinusBaseProvider<BrowserProv
 
   async connect(): Promise<string> {
     // First request account access permission
-    await this.provider.send("eth_requestAccounts", []);
+    const accounts = await this.provider.send("eth_requestAccounts", []);
+    console.log('🔍 eth_requestAccounts result:', accounts);
     const signer = await this.provider.getSigner();
-    return await signer.getAddress();
+    const address = await signer.getAddress();
+    console.log('🔍 getSigner address:', address);
+    return address;
   }
 
   close() {
