@@ -6,8 +6,13 @@ import { L2AccountInfo } from '../models/L2AccountInfo';
 
 export async function loginL1Account(): Promise<L1AccountInfo> {
   return await withProvider(async (provider) => {
-    // Validate and switch network
-    await validateAndSwitchNetwork(provider);
+    // Try to validate and switch network, but don't fail login if network switch fails
+    try {
+      await validateAndSwitchNetwork(provider);
+      console.log('✅ Network validation and switch successful for L1 login');
+    } catch (networkError) {
+      console.warn('⚠️ Network switch failed for L1 login, but continuing with current network:', networkError);
+    }
     
     // Get account information
     const signer = await provider.getJsonRpcSigner();

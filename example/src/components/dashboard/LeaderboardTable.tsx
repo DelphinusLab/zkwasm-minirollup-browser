@@ -105,14 +105,14 @@ export const LeaderboardTable = ({
     const secondsAgo = Number(counterDiff) * 5; // 1 counter = 5 seconds
     
     // Debug log for development (can be removed in production)
-    if (import.meta.env.DEV && data.length > 0 && data[0]?.lastStakeTime === lastStakeTime) {
-      console.log('Time calculation:', {
-        currentCounter: currentCounter.toString(),
-        lastStakeTime: lastStakeTime.toString(),
-        counterDiff: counterDiff.toString(),
-        secondsAgo
-      });
-    }
+    // if (import.meta.env.DEV && data.length > 0 && data[0]?.lastStakeTime === lastStakeTime) {
+    //   console.log('Time calculation:', {
+    //     currentCounter: currentCounter.toString(),
+    //     lastStakeTime: lastStakeTime.toString(),
+    //     counterDiff: counterDiff.toString(),
+    //     secondsAgo
+    //   });
+    // }
     
     // Convert seconds to human readable format
     if (secondsAgo < 0) return 'Future'; // Handle edge case

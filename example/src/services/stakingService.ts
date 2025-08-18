@@ -262,7 +262,7 @@ export class StakingService {
       const result: any = await this.rpc.queryState(fallbackPrivkey);
       const parsedData = JSON.parse(result.data);
       const backendCounter = BigInt(parsedData.state.counter);
-      console.log('Got backend counter:', backendCounter.toString());
+      // console.log('Got backend counter:', backendCounter.toString());
       return backendCounter;
     } catch (error) {
       console.warn('Failed to get global counter from backend, using client timestamp as fallback');
@@ -321,12 +321,12 @@ export class StakingService {
         const result = await response.json();
         
         if (!result.success || !result.data || result.data.length === 0) {
-          console.log(`No more data found at batch ${i} (starting at ${startIndex})`);
+          // console.log(`No more data found at batch ${i} (starting at ${startIndex})`);
           break; // Stop when we hit an empty batch
         }
         
         allPlayers.push(...result.data);
-        console.log(`Fetched batch ${i + 1}: ${result.data.length} players (total: ${allPlayers.length})`);
+        // console.log(`Fetched batch ${i + 1}: ${result.data.length} players (total: ${allPlayers.length})`);
       } catch (error) {
         console.warn(`Error fetching players batch starting at ${startIndex}:`, error);
         break; // Stop on error

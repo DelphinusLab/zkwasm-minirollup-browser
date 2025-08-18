@@ -58,8 +58,14 @@ export function useWalletActions(
       await initializeRainbowProviderIfNeeded(address, chainId);
       
       const result = await withProvider(async (provider) => {
-        // Validate and switch network
-        await validateAndSwitchNetwork(provider);
+        // Try to validate and switch network, but don't fail the entire connection if it fails
+        try {
+          await validateAndSwitchNetwork(provider);
+          console.log('✅ Network validation and switch successful');
+        } catch (networkError) {
+          console.warn('⚠️ Network switch failed, but continuing with current network:', networkError);
+          // Don't throw here - let the connection proceed on the current network
+        }
         
         // Get account address
         const connectedAddress = await provider.connect();
@@ -181,8 +187,14 @@ export function useWalletActions(
       await initializeRainbowProviderIfNeeded(address, chainId);
       
       const result = await withProvider(async (provider) => {
-        // Validate and switch network
-        await validateAndSwitchNetwork(provider);
+        // Try to validate and switch network, but don't fail the deposit if network switch fails
+        try {
+          await validateAndSwitchNetwork(provider);
+          console.log('✅ Network validation and switch successful for deposit');
+        } catch (networkError) {
+          console.warn('⚠️ Network switch failed for deposit, but continuing with current network:', networkError);
+          // Note: Some deposits might fail if on wrong network, but that's better than complete failure
+        }
         
         // Execute deposit operation (using unified utility function)
         return await executeDeposit(provider, params);

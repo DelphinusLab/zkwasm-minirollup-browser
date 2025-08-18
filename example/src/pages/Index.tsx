@@ -135,7 +135,7 @@ const Index = () => {
           }
           
           const balance = await stakingService.getL1TokenBalance(address, provider);
-          console.log('🔍 L1 balance:', balance);
+          // console.log('🔍 L1 balance:', balance);
           setUserL1Balance(balance);
         } catch (error) {
           console.error('Failed to fetch L1 balance:', error);

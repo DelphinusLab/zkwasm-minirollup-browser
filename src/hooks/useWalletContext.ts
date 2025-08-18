@@ -57,7 +57,7 @@ export function useWalletContext(): WalletContextType {
   const { connectAndLoginL1, loginL2 } = useWalletActions(address, chainId);
   
   // Get Redux state
-  const { l1Account, l2account } = useSelector((state: RootState) => state.account);
+  const { l1Account, l2account, status } = useSelector((state: RootState) => state.account);
   
   // Calculate derived state
   const isL2Connected = useMemo(() => !!l2account, [l2account]);
@@ -77,8 +77,33 @@ export function useWalletContext(): WalletContextType {
   
   // L1 connection method
   const connectL1 = useCallback(async () => {
-    await connectAndLoginL1(dispatch);
-  }, [connectAndLoginL1, dispatch]);
+    // Prevent duplicate L1 connection attempts
+    if (l1Account || status === 'LoadingL1') {
+      console.log(`✅ L1 connection already ${l1Account ? 'completed' : 'in progress'}, skipping duplicate call`);
+      return;
+    }
+    
+    console.log('🔄 Starting L1 connection...');
+    try {
+      await connectAndLoginL1(dispatch);
+    } catch (error: any) {
+      console.error('L1 connection failed:', error);
+      
+      // Handle specific error types gracefully
+      if (error?.message?.includes('User rejected')) {
+        console.log('User cancelled connection - this is normal');
+        return;
+      }
+      
+      if (error?.message?.includes('Unrecognized chain ID')) {
+        console.log('Network switching required - user should add/switch network manually');
+        return;
+      }
+      
+      // Re-throw other errors
+      throw error;
+    }
+  }, [connectAndLoginL1, dispatch, l1Account, status]);
   
   // L2 connection method - use appName from Provider
   const connectL2 = useCallback(async () => {

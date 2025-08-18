@@ -11,8 +11,14 @@ export async function deposit(
   l1account: L1AccountInfo
 ): Promise<SerializableTransactionReceipt> {
   return await withProvider(async (provider) => {
-    // Validate and switch network
-    await validateAndSwitchNetwork(provider);
+    // Try to validate and switch network, but don't fail deposit if network switch fails
+    try {
+      await validateAndSwitchNetwork(provider);
+      console.log('✅ Network validation and switch successful for deposit service');
+    } catch (networkError) {
+      console.warn('⚠️ Network switch failed for deposit service, but continuing with current network:', networkError);
+      // Note: Deposit might fail if on wrong network, but that will be handled by the contract call
+    }
     
     // Execute deposit operation
     return await executeDeposit(provider, {
