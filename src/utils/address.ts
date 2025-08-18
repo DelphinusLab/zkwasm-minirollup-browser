@@ -18,12 +18,3 @@ export async function signMessage(message: string): Promise<string> {
   });
   return signature;
 }
-
-export async function switchNetwork(chainId: number): Promise<void> {
-  await withProvider(async (provider) => {
-    if (!provider) {
-      throw new Error("No provider found!");
-    }
-    await provider.switchNet("0x" + chainId.toString(16));
-  });
-} 

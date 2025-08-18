@@ -3,6 +3,7 @@ import { getEnvConfig } from '../config/env-adapter';
 import { contractABI } from '../contracts/abi';
 import { ERROR_MESSAGES } from './constants';
 import { createError } from './errors';
+import { validateCurrentNetwork } from './network';
 import { toWei, calculatePidArray, hasSufficientBalance, BN } from './crypto';
 import { L1AccountInfo, SerializableTransactionReceipt } from '../types';
 import { L2AccountInfo } from '../models/L2AccountInfo';
@@ -88,6 +89,9 @@ export async function executeDeposit(
     l1account: L1AccountInfo;
   }
 ): Promise<SerializableTransactionReceipt> {
+
+  await validateCurrentNetwork(provider);
+  
   const { proxyAddr, tokenAddr } = getContractAddresses();
   
   // Calculate amount and PID

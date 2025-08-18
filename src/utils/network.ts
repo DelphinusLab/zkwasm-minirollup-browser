@@ -72,16 +72,76 @@ async function addNetworkToWallet(provider: DelphinusProvider, chainId: number):
 }
 
 /**
- * Validate current network and switch if incorrect
+ * Validates current network without switching - throws error if on wrong network
  * @param provider - Delphinus provider instance
  * @returns Promise<void>
  */
+export async function validateCurrentNetwork(provider: DelphinusProvider): Promise<void> {
+  const targetChainId = getChainId();
+  const currentNetwork = await provider.getNetworkId();
+  
+  if (currentNetwork.toString() !== targetChainId.toString()) {
+    console.error(`❌ Wrong network: expected ${targetChainId}, currently on ${currentNetwork}`);
+    throw createError(
+      `Wrong network detected. Expected chain ${targetChainId}, but currently on chain ${currentNetwork}. ` +
+      `Please manually switch to the correct network in your wallet.`,
+      'WRONG_NETWORK'
+    );
+  }
+  
+  console.log(`✅ Network validation passed: on correct chain ${targetChainId}`);
+}
+
+// Global network switching lock to prevent race conditions
+let networkSwitchInProgress = false;
+let pendingNetworkSwitch: Promise<void> | null = null;
+
 export async function validateAndSwitchNetwork(provider: DelphinusProvider): Promise<void> {
   const targetChainId = getChainId();
   const chainHexId = "0x" + targetChainId.toString(16);
   
   console.log(`🔄 validateAndSwitchNetwork: target chain ${targetChainId} (${chainHexId})`);
   
+  // Check if network switch is already in progress
+  if (networkSwitchInProgress && pendingNetworkSwitch) {
+    console.log('🔄 Network switch already in progress, waiting for completion...');
+    await pendingNetworkSwitch;
+    
+    // Verify the completed switch matches our target
+    const currentNetwork = await provider.getNetworkId();
+    if (currentNetwork.toString() === targetChainId.toString()) {
+      console.log('✅ Previous network switch completed successfully for our target');
+      return;
+    } else {
+      console.log('⚠️ Previous network switch was for different target, proceeding with new switch');
+    }
+  }
+  
+  // Check if we're already on the correct network
+  try {
+    const currentNetwork = await provider.getNetworkId();
+    if (currentNetwork.toString() === targetChainId.toString()) {
+      console.log(`✅ Already on target network ${targetChainId}`);
+      return;
+    }
+  } catch (error) {
+    console.warn('Failed to check current network, proceeding with switch:', error);
+  }
+  
+  // Set lock and create promise for this switch operation
+  networkSwitchInProgress = true;
+  pendingNetworkSwitch = performNetworkSwitch(provider, targetChainId, chainHexId);
+  
+  try {
+    await pendingNetworkSwitch;
+  } finally {
+    // Always clear the lock
+    networkSwitchInProgress = false;
+    pendingNetworkSwitch = null;
+  }
+}
+
+async function performNetworkSwitch(provider: DelphinusProvider, targetChainId: number, chainHexId: string): Promise<void> {
   try {
     // Attempt to switch network
     console.log(`📡 Calling provider.switchNet(${chainHexId})...`);
@@ -96,6 +156,8 @@ export async function validateAndSwitchNetwork(provider: DelphinusProvider): Pro
         'NETWORK_MISMATCH'
       );
     }
+    
+    console.log(`✅ Network switch successful: now on chain ${targetChainId}`);
   } catch (error: any) {
     // If network is not configured (4902), try to add it automatically
     // Check both direct error code and nested error (ethers.js wrapping)
@@ -112,22 +174,61 @@ export async function validateAndSwitchNetwork(provider: DelphinusProvider): Pro
         // Try to switch again after adding the network
         try {
           await provider.switchNet(chainHexId);
-          console.log(`✅ Successfully switched to network ${targetChainId} after adding it`);
-          return;
+          
+          // Verify the switch was successful after adding network
+          const finalNetwork = await provider.getNetworkId();
+          if (finalNetwork.toString() === targetChainId.toString()) {
+            console.log(`✅ Successfully switched to network ${targetChainId} after adding it`);
+            return;
+          } else {
+            console.error(`❌ Network switch failed after adding: expected ${targetChainId}, got ${finalNetwork}`);
+            throw createError(
+              ERROR_MESSAGES.NETWORK_MISMATCH(targetChainId, finalNetwork.toString()),
+              'NETWORK_MISMATCH'
+            );
+          }
         } catch (switchError) {
           console.error('Failed to switch after adding network:', switchError);
+          
+          // Check if we're actually on the right network despite the error
+          try {
+            const currentNetworkAfterError = await provider.getNetworkId();
+            if (currentNetworkAfterError.toString() === targetChainId.toString()) {
+              console.log(`✅ Network switch actually succeeded despite error`);
+              return;
+            }
+          } catch (verifyError) {
+            console.error('Failed to verify network after switch error:', verifyError);
+          }
         }
       }
     }
     
-    if (error instanceof Error && error.message.includes('switch')) {
-      throw error; // Re-throw network switch errors
+    // Final network verification before throwing error
+    try {
+      const finalNetworkCheck = await provider.getNetworkId();
+      if (finalNetworkCheck.toString() === targetChainId.toString()) {
+        console.log(`✅ Network is actually correct despite previous errors`);
+        return;
+      }
+      
+      console.error(`❌ Final network check failed: expected ${targetChainId}, currently on ${finalNetworkCheck}`);
+      throw createError(
+        ERROR_MESSAGES.NETWORK_MISMATCH(targetChainId, finalNetworkCheck.toString()),
+        'NETWORK_MISMATCH'
+      );
+    } catch (finalVerifyError) {
+      console.error('❌ Final network verification failed:', finalVerifyError);
+      
+      if (error instanceof Error && error.message.includes('switch')) {
+        throw error; // Re-throw network switch errors
+      }
+      throw createError(
+        `Failed to validate network: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        'NETWORK_VALIDATION_FAILED',
+        error
+      );
     }
-    throw createError(
-      `Failed to validate network: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      'NETWORK_VALIDATION_FAILED',
-      error
-    );
   }
 }
 

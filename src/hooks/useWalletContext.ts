@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useDisconnect } from 'wagmi';
 import { useConnection } from './useConnection';
@@ -11,8 +11,8 @@ import type { RootState, AppDispatch, SerializableTransactionReceipt } from '../
 export interface WalletContextType {
   isConnected: boolean;
   isL2Connected: boolean;
-  l1Account: any;
-  l2Account: any;
+  l1Account: any | undefined;
+  l2Account: any | undefined;
   playerId: [string, string] | null;
   address: string | undefined;
   chainId: number | undefined;
@@ -24,7 +24,7 @@ export interface WalletContextType {
    * The signed message is the appName parameter passed to DelphinusReactProvider.
    */
   connectL2: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<void>;
   setPlayerId: (id: [string, string]) => void;
   deposit: (params: { tokenIndex: number; amount: number }) => Promise<SerializableTransactionReceipt>;
 }
@@ -47,7 +47,7 @@ export function useWalletContext(): WalletContextType {
   // Get appName from Provider
   const { appName } = useDelphinusContext();
   
-  // Get connection status
+  // Get connection status from wagmi (single source of truth)
   const { isConnected, address, chainId } = useConnection();
   
   // Get wagmi disconnect functionality
@@ -59,8 +59,52 @@ export function useWalletContext(): WalletContextType {
   // Get Redux state
   const { l1Account, l2account, status } = useSelector((state: RootState) => state.account);
   
-  // Calculate derived state
+  // Sync wagmi and Redux states with debouncing to prevent rapid state changes
+  useEffect(() => {
+    // Add a small delay to prevent rapid state changes during initialization
+    const timeoutId = setTimeout(() => {
+      // If wagmi disconnected but Redux still has account data, clear Redux
+      if (!isConnected && l1Account) {
+        console.warn('🔄 Wagmi disconnected but Redux still has L1 account, syncing...');
+        dispatch(resetAccountState());
+      }
+      
+      // If wagmi connected to different address than Redux, clear Redux L1 account
+      if (isConnected && address && l1Account && l1Account.address?.toLowerCase() !== address.toLowerCase()) {
+        console.warn('🔄 Address mismatch between wagmi and Redux, clearing Redux L1 account...', {
+          wagmiAddress: address,
+          reduxAddress: l1Account.address
+        });
+        dispatch(resetAccountState());
+      }
+    }, 100); // Small delay to debounce rapid changes
+
+    return () => clearTimeout(timeoutId);
+  }, [isConnected, address, l1Account, dispatch]);
+  
+  // Calculate derived state with cross-validation
   const isL2Connected = useMemo(() => !!l2account, [l2account]);
+  
+  // Unified connection state with consistency validation
+  const connectionState = useMemo(() => {
+    // wagmi is the authoritative source for connection status
+    const wagmiConnected = Boolean(isConnected && address);
+    
+    // Redux L1 account should only be trusted if wagmi is also connected
+    const validL1Account = Boolean(wagmiConnected && l1Account && 
+      l1Account.address?.toLowerCase() === address?.toLowerCase());
+    
+    // L2 account is valid only if L1 is properly connected
+    const validL2Account = Boolean(validL1Account && l2account);
+    
+    return {
+      isConnected: wagmiConnected,
+      isL1Ready: validL1Account,
+      isL2Ready: validL2Account,
+      address: wagmiConnected ? address : undefined,
+      chainId: wagmiConnected ? chainId : undefined
+    };
+  }, [isConnected, address, chainId, l1Account, l2account]);
   
   // Get playerId (PID array)
   const playerId = useMemo((): [string, string] | null => {
@@ -110,13 +154,27 @@ export function useWalletContext(): WalletContextType {
     await loginL2(dispatch, appName);
   }, [loginL2, dispatch, appName]);
   
-  // Disconnect method
-  const disconnect = useCallback(() => {
-    // First disconnect wagmi connection
-    wagmiDisconnect();
+  // Disconnect method with atomic state synchronization
+  const disconnect = useCallback(async () => {
+    console.log('🔌 Disconnecting wallet...');
     
-    // Then clear Redux state
-    dispatch(resetAccountState());
+    try {
+      // Clear Redux state first to prevent UI showing stale data
+      dispatch(resetAccountState());
+      
+      // Then disconnect wagmi (this may take time due to network operations)
+      await wagmiDisconnect();
+      
+      console.log('✅ Wallet disconnected successfully');
+    } catch (error) {
+      console.error('❌ Error during disconnect:', error);
+      
+      // Even if wagmi disconnect fails, ensure Redux state is cleared
+      dispatch(resetAccountState());
+      
+      // Re-throw to let caller handle if needed
+      throw error;
+    }
   }, [wagmiDisconnect, dispatch]);
   
   // Set playerId method - implemented by recreating L2 account
@@ -128,36 +186,44 @@ export function useWalletContext(): WalletContextType {
     );
   }, []);
   
-  // Deposit method
+  // Deposit method with unified state validation
   const deposit = useCallback(async (params: { tokenIndex: number; amount: number }) => {
-    if (!l1Account) {
-      throw new Error('L1 account is not connected');
+    // Use unified connection state for validation
+    if (!connectionState.isL1Ready) {
+      throw new Error('L1 account is not properly connected. Please reconnect your wallet.');
     }
-    if (!l2account) {
-      throw new Error('L2 account is not connected');
+    if (!connectionState.isL2Ready) {
+      throw new Error('L2 account is not properly connected. Please complete L2 login.');
+    }
+    
+    // Double-check wagmi connection before proceeding
+    if (!connectionState.isConnected || !connectionState.address) {
+      throw new Error('Wallet connection lost. Please reconnect.');
     }
   
     const result = await (dispatch as any)(depositAsync({
       tokenIndex: params.tokenIndex,
       amount: params.amount,
-      l2account: l2account,
-      l1account: l1Account
+      l2account: l2account!,
+      l1account: l1Account!
     }));
   
     if (depositAsync.rejected.match(result)) {
       throw new Error(result.error.message || 'Deposit failed');
     }
     return result.payload as SerializableTransactionReceipt;
-  }, [dispatch, l1Account, l2account]);
+  }, [dispatch, l1Account, l2account, connectionState]);
   
   return {
-    isConnected,
-    isL2Connected,
-    l1Account,
-    l2Account: l2account,
-    playerId,
-    address,
-    chainId,
+    // Use unified connection state for consistent external API
+    isConnected: connectionState.isConnected,
+    isL2Connected: connectionState.isL2Ready,
+    l1Account: connectionState.isL1Ready ? l1Account : undefined,
+    // Only hide l2Account if L1 is not ready, but keep it if L1 is ready but L2 validation failed
+    l2Account: connectionState.isL1Ready ? l2account : undefined,
+    playerId: connectionState.isL2Ready ? playerId : null,
+    address: connectionState.address,
+    chainId: connectionState.chainId,
     connectL1,
     connectL2,
     disconnect,

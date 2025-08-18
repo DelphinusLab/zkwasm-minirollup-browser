@@ -12,6 +12,7 @@ export {
   setProviderConfig,
   withProvider,
   clearProviderInstance,
+  resetProviderForReconnection,
   type DelphinusProvider,
 } from "./providers/provider";
 

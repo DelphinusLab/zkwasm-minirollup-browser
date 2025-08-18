@@ -33,11 +33,63 @@ export function getEnvConfig(): EnvConfig {
   };
 
   try {
-    // Helper function to clean JSON.stringify'd values from Vite's define config
+    // Helper function to clean and validate environment values
     const cleanValue = (value: string | undefined): string => {
       if (!value) return '';
       // Remove surrounding quotes if present (from JSON.stringify)
-      return value.replace(/^"(.*)"$/, '$1');
+      const cleaned = value.replace(/^"(.*)"$/, '$1');
+      
+      // Security validation - prevent XSS and injection attacks
+      if (cleaned.includes('<script') || 
+          cleaned.includes('javascript:') || 
+          cleaned.includes('data:') ||
+          cleaned.includes('vbscript:') ||
+          cleaned.includes('onload=') ||
+          cleaned.includes('onerror=')) {
+        console.error('🚨 Security: Malicious content detected in environment variable:', value);
+        return '';
+      }
+      
+      return cleaned;
+    };
+
+    // Validate contract address format
+    const validateAddress = (address: string): string => {
+      if (!address) return '';
+      // Must be valid Ethereum address format
+      if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+        console.warn('⚠️ Invalid address format:', address);
+        return '';
+      }
+      return address;
+    };
+
+    // Validate URL format  
+    const validateUrl = (url: string): string => {
+      if (!url) return '';
+      try {
+        // Only allow http/https protocols
+        const urlObj = new URL(url);
+        if (!['http:', 'https:'].includes(urlObj.protocol)) {
+          console.error('🚨 Security: Invalid URL protocol:', url);
+          return '';
+        }
+        return url;
+      } catch (error) {
+        console.warn('⚠️ Invalid URL format:', url);
+        return '';
+      }
+    };
+
+    // Validate WalletConnect Project ID format
+    const validateProjectId = (id: string): string => {
+      if (!id) return '';
+      // Should be alphanumeric with dashes/underscores only
+      if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+        console.warn('⚠️ Invalid WalletConnect Project ID format:', id);
+        return '';
+      }
+      return id;
     };
 
     // Start with default config
@@ -48,11 +100,11 @@ export function getEnvConfig(): EnvConfig {
       const chainIdStr = cleanValue(process.env.REACT_APP_CHAIN_ID);
       const processConfig = {
         chainId: chainIdStr ? parseInt(chainIdStr) : config.chainId,
-        depositContract: cleanValue(process.env.REACT_APP_DEPOSIT_CONTRACT) || config.depositContract,
-        tokenContract: cleanValue(process.env.REACT_APP_TOKEN_CONTRACT) || config.tokenContract,
-        walletConnectId: cleanValue(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID) || config.walletConnectId,
+        depositContract: validateAddress(cleanValue(process.env.REACT_APP_DEPOSIT_CONTRACT)) || config.depositContract,
+        tokenContract: validateAddress(cleanValue(process.env.REACT_APP_TOKEN_CONTRACT)) || config.tokenContract,
+        walletConnectId: validateProjectId(cleanValue(process.env.REACT_APP_WALLETCONNECT_PROJECT_ID)) || config.walletConnectId,
         mode: process.env.NODE_ENV || config.mode,
-        rpcUrl: cleanValue(process.env.REACT_APP_URL) || config.rpcUrl
+        rpcUrl: validateUrl(cleanValue(process.env.REACT_APP_URL)) || config.rpcUrl
       };
       config = { ...config, ...processConfig };
     }
@@ -64,41 +116,46 @@ export function getEnvConfig(): EnvConfig {
       const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID);
       const viteConfig = {
         chainId: chainIdStr ? parseInt(chainIdStr) : config.chainId,
-        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT) || config.depositContract,
-        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT) || config.tokenContract,
-        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID) || config.walletConnectId,
+        depositContract: validateAddress(cleanValue(env.REACT_APP_DEPOSIT_CONTRACT)) || config.depositContract,
+        tokenContract: validateAddress(cleanValue(env.REACT_APP_TOKEN_CONTRACT)) || config.tokenContract,
+        walletConnectId: validateProjectId(cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID)) || config.walletConnectId,
         mode: env.MODE || config.mode,
-        rpcUrl: cleanValue(env.REACT_APP_URL) || config.rpcUrl
+        rpcUrl: validateUrl(cleanValue(env.REACT_APP_URL)) || config.rpcUrl
       };
       config = { ...config, ...viteConfig };
     }
     
-    // 3. Check global variables (for certain build tools)
+    // 3. Check global variables (for certain build tools) - with security validation
     if (typeof window !== 'undefined' && (window as any).__ENV__) {
       const env = (window as any).__ENV__;
+      
+      console.warn('🔍 Loading config from window.__ENV__ - ensure this is from a trusted source');
       
       const chainIdStr = cleanValue(env.REACT_APP_CHAIN_ID);
       const globalConfig = {
         chainId: chainIdStr ? parseInt(chainIdStr) : config.chainId,
-        depositContract: cleanValue(env.REACT_APP_DEPOSIT_CONTRACT) || config.depositContract,
-        tokenContract: cleanValue(env.REACT_APP_TOKEN_CONTRACT) || config.tokenContract,
-        walletConnectId: cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID) || config.walletConnectId,
+        depositContract: validateAddress(cleanValue(env.REACT_APP_DEPOSIT_CONTRACT)) || config.depositContract,
+        tokenContract: validateAddress(cleanValue(env.REACT_APP_TOKEN_CONTRACT)) || config.tokenContract,
+        walletConnectId: validateProjectId(cleanValue(env.REACT_APP_WALLETCONNECT_PROJECT_ID)) || config.walletConnectId,
         mode: env.MODE || config.mode,
-        rpcUrl: cleanValue(env.REACT_APP_URL) || config.rpcUrl
+        rpcUrl: validateUrl(cleanValue(env.REACT_APP_URL)) || config.rpcUrl
       };
       config = { ...config, ...globalConfig };
     }
     
-    // 4. Check custom global variables
+    // 4. Check custom global variables - with security validation
     if (typeof window !== 'undefined' && (window as any).APP_CONFIG) {
       const appConfig = (window as any).APP_CONFIG;
+      
+      console.warn('🔍 Loading config from window.APP_CONFIG - ensure this is from a trusted source');
+      
       const customConfig = {
-        chainId: appConfig.chainId ? parseInt(appConfig.chainId) : config.chainId,
-        depositContract: appConfig.depositContract || config.depositContract,
-        tokenContract: appConfig.tokenContract || config.tokenContract,
-        walletConnectId: appConfig.walletConnectId || config.walletConnectId,
-        mode: appConfig.mode || config.mode,
-        rpcUrl: appConfig.rpcUrl || config.rpcUrl
+        chainId: appConfig.chainId ? parseInt(String(appConfig.chainId)) : config.chainId,
+        depositContract: validateAddress(String(appConfig.depositContract || '')) || config.depositContract,
+        tokenContract: validateAddress(String(appConfig.tokenContract || '')) || config.tokenContract,
+        walletConnectId: validateProjectId(String(appConfig.walletConnectId || '')) || config.walletConnectId,
+        mode: String(appConfig.mode || config.mode),
+        rpcUrl: validateUrl(String(appConfig.rpcUrl || '')) || config.rpcUrl
       };
       config = { ...config, ...customConfig };
     }

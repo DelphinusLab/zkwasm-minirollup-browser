@@ -15,7 +15,7 @@ import { DelphinusContract } from "../contracts/client";
 import { hasEthereumProvider } from '../utils/provider';
 // RainbowKit related imports
 import { createConfig } from 'wagmi';
-import { connect, getAccount } from 'wagmi/actions';
+import { getAccount } from 'wagmi/actions';
 
 
 
@@ -124,6 +124,22 @@ class ProviderManager {
     }
     // Keep providerConfig so it can be recreated on next getProvider call
   }
+
+  // Reset provider for reconnection without stopping monitoring
+  resetProviderForReconnection() {
+    if (this.currentProvider) {
+      // Check if it's DelphinusRainbowConnector (the only type that has this method)
+      if ('resetForReconnection' in this.currentProvider && 
+          typeof this.currentProvider.resetForReconnection === 'function') {
+        (this.currentProvider as any).resetForReconnection();
+      } else {
+        // For other provider types, fall back to clearing instance
+        this.currentProvider.close();
+        this.currentProvider = null;
+      }
+    }
+    // Keep providerConfig for smooth reconnection
+  }
 }
 
 // Global function to get Provider
@@ -144,6 +160,11 @@ export function clearProvider() {
 // Only clear Provider instance, keep configuration
 export function clearProviderInstance() {
   ProviderManager.getInstance().clearProviderInstance();
+}
+
+// Reset provider for reconnection without stopping monitoring
+export function resetProviderForReconnection() {
+  ProviderManager.getInstance().resetProviderForReconnection();
 }
 
 // Generic withProvider function
@@ -360,7 +381,14 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   private config: ReturnType<typeof createConfig> | null = null;
   private isInitialized: boolean = false;
   private stateConsistencyChecker: NodeJS.Timeout | null = null;
+  private monitoringStopFlag: (() => void) | null = null;
   private lastKnownWagmiState: { address?: string; chainId?: number; isConnected: boolean } | null = null;
+  private signerHealthChecker: NodeJS.Timeout | null = null;
+  private lastSignerHealthCheck: number = 0;
+  
+  // Race condition protection
+  private initializationLock: boolean = false;
+  private initializationPromise: Promise<void> | null = null;
 
   constructor() {
     // Don't rely on window.ethereum for initialization
@@ -391,16 +419,42 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       if (!this.config) {
         throw new Error("No wagmi config available. Please ensure DelphinusProvider is used to wrap your app.");
       }
+      
       // First, try to get provider from current wagmi account
       const account = getAccount(this.config);
       
-      if (account.connector && account.isConnected) {
+      console.log('🔍 Current wagmi account state:', {
+        isConnected: account.isConnected,
+        address: account.address,
+        connector: account.connector?.name,
+        internalState: {
+          isInitialized: this.isInitialized,
+          hasAccount: !!this.account,
+          address: this.account
+        }
+      });
+      
+      // Skip wagmi provider if our internal state shows we're disconnected
+      // This handles the case where wagmi state is stale after disconnect
+      if (account.connector && account.isConnected && !this.account) {
+        console.log('🚫 Wagmi shows connected but internal state shows disconnected, skipping wagmi provider');
+      } else if (account.connector && account.isConnected) {
         console.log('Found existing wagmi connection, getting provider...');
         const provider = await account.connector.getProvider();
         
         if (provider) {
-          console.log('✅ Successfully got provider from wagmi connector');
-          return new BrowserProvider(provider as Eip1193Provider, "any");
+          // Validate the provider actually has connected accounts
+          try {
+            const accounts = await (provider as any).request({ method: 'eth_accounts' });
+            if (accounts && accounts.length > 0) {
+              console.log('✅ Successfully got provider from wagmi connector with valid accounts');
+              return new BrowserProvider(provider as Eip1193Provider, "any");
+            } else {
+              console.warn('⚠️ Wagmi provider exists but has no accounts, will try reconnection');
+            }
+          } catch (error) {
+            console.warn('⚠️ Failed to validate wagmi provider, will try reconnection:', error);
+          }
         }
       }
 
@@ -426,10 +480,24 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
             const provider = await reconnectedAccount.connector.getProvider();
             
             if (provider) {
-              if (!this.isInitialized) {
-                console.log('✅ Successfully reconnected and got provider');
+              // Validate that the provider is actually connected
+              const isProviderValid = await this.validateProviderConnection(provider);
+              
+              if (isProviderValid) {
+                if (!this.isInitialized) {
+                  console.log('✅ Successfully reconnected and validated provider');
+                }
+                return new BrowserProvider(provider as Eip1193Provider, "any");
+              } else {
+                console.warn('⚠️ Reconnected provider failed validation, clearing session');
+                // Clear invalid session data
+                try {
+                  const { clearWalletConnectStorageOnly } = await import('../delphinus-provider');
+                  clearWalletConnectStorageOnly();
+                } catch (error) {
+                  console.warn('Failed to clear invalid session:', error);
+                }
               }
-              return new BrowserProvider(provider as Eip1193Provider, "any");
             }
           }
         }
@@ -538,20 +606,56 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     }
   }
 
-  // Enhanced initialization method with session recovery
+  // Enhanced initialization method with race condition protection
   async initialize(account: `0x${string}` | undefined, chainId: number) {
     if (!account) {
       throw new Error("No account connected");
     }
 
-    // Prevent duplicate initialization
+    // Return existing initialization promise if one is in progress
+    if (this.initializationPromise) {
+      console.log('⏳ Initialization already in progress, waiting for completion...');
+      await this.initializationPromise;
+      
+      // After waiting, check if the result matches what we wanted
+      if (this.isInitialized && 
+          this.account?.toLowerCase() === account.toLowerCase() && 
+          this.chainId === chainId) {
+        console.log('✅ Previous initialization matches current request');
+        return;
+      } else {
+        console.log('⚠️ Previous initialization was for different account/chain, proceeding with new initialization');
+      }
+    }
+
+    // Check if already initialized with same parameters (atomic check)
     if (this.isInitialized && 
         this.account?.toLowerCase() === account.toLowerCase() && 
         this.chainId === chainId) {
       console.log('✅ Already initialized with same account/chain, skipping');
       return;
     }
+
+    // Prevent concurrent initialization
+    if (this.initializationLock) {
+      throw new Error('Initialization already in progress. This should not happen if promises are handled correctly.');
+    }
+
+    // Set lock and create promise
+    this.initializationLock = true;
+    this.initializationPromise = this._doInitialize(account, chainId);
     
+    try {
+      await this.initializationPromise;
+    } finally {
+      // Always clear the lock and promise
+      this.initializationLock = false;
+      this.initializationPromise = null;
+    }
+  }
+
+  // Private method that does the actual initialization
+  private async _doInitialize(account: `0x${string}`, chainId: number): Promise<void> {
     // Log only if this is truly a new initialization
     if (!this.isInitialized) {
       console.log('🔄 Initializing DelphinusRainbowConnector...', { account, chainId });
@@ -671,6 +775,9 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           this.startStateConsistencyMonitoring();
         }
         
+        // Start signer health monitoring
+        this.startSignerHealthMonitoring();
+        
         console.log('✅ DelphinusRainbowConnector initialized successfully');
         
       } catch (signerError) {
@@ -685,300 +792,38 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     }
   }
 
-    // Create genuine RainbowKit style connection modal
-  private async connectWithRainbowKit(): Promise<string> {
-    try {
-      // Get shared configuration, throw error if none exists
-      if (!this.config) {
-        this.config = getSharedWagmiConfig();
-        if (!this.config) {
-          throw new Error("No wagmi config available. Please ensure DelphinusProvider is used to wrap your app.");
-        }
-      }
-      
-      // Store config in local variable for TypeScript
-      const config = this.config;
-      
-      // Get available connectors
-      const connectors = config.connectors;
-      
-      return new Promise((resolve, reject) => {
-        // Create RainbowKit style modal
-        const modalOverlay = document.createElement('div');
-        modalOverlay.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.3);
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          z-index: 999999;
-          backdrop-filter: blur(8px);
-          animation: fadeIn 0.2s ease-out;
-        `;
-
-        // Add animation styles
-        const style = document.createElement('style');
-        style.textContent = `
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-          @keyframes slideUp {
-            from { 
-              opacity: 0;
-              transform: translateY(20px) scale(0.95);
-            }
-            to { 
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-          }
-          .wallet-button:hover {
-            background: #f1f5f9 !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-          }
-        `;
-        document.head.appendChild(style);
-
-        const modalContent = document.createElement('div');
-        modalContent.style.cssText = `
-          background: white;
-          border-radius: 20px;
-          padding: 24px;
-          max-width: 360px;
-          width: 90%;
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-          animation: slideUp 0.3s ease-out;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-        `;
-
-        // Top close button
-        const closeBtn = document.createElement('button');
-        closeBtn.innerHTML = '✕';
-        closeBtn.style.cssText = `
-          position: absolute;
-          top: 16px;
-          right: 16px;
-          background: #f3f4f6;
-          border: none;
-          border-radius: 50%;
-          width: 32px;
-          height: 32px;
-          cursor: pointer;
-          color: #6b7280;
-          font-size: 14px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-        `;
-        closeBtn.onmouseenter = () => {
-          closeBtn.style.background = '#e5e7eb';
-          closeBtn.style.color = '#374151';
-        };
-        closeBtn.onmouseleave = () => {
-          closeBtn.style.background = '#f3f4f6';
-          closeBtn.style.color = '#6b7280';
-        };
-
-        const title = document.createElement('h1');
-        title.textContent = 'Connect a wallet';
-        title.style.cssText = `
-          margin: 0 0 20px 0;
-          font-size: 20px;
-          font-weight: 700;
-          color: #111827;
-          text-align: center;
-        `;
-
-        const walletContainer = document.createElement('div');
-        walletContainer.style.cssText = `
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        `;
-
-        // Wallet icon mapping
-        const walletIcons = {
-          'MetaMask': `<svg width="24" height="24" viewBox="0 0 318.6 318.6" fill="none"><path d="m274.1 35.5-99.5 73.9L193 65.8z" fill="#e2761b"/><path d="m44.4 35.5 98.7 74.6-17.5-44.3z" fill="#e4761b"/><path d="m238.3 206.8-26.5 40.6 56.7 15.6 16.3-55.3z" fill="#e4761b"/><path d="m33.9 207.7 16.2 55.3 56.7-15.6-26.5-40.6z" fill="#e4761b"/></svg>`,
-          'WalletConnect': `<svg width="24" height="24" viewBox="0 0 300 185" fill="#3b99fc"><path d="M61.4385 36.2562C109.367 -9.42187 190.633 -9.42187 238.562 36.2562L244.448 41.6729C246.893 43.9396 246.893 47.7604 244.448 50.0271L224.408 68.9729C223.185 70.1062 221.174 70.1062 219.951 68.9729L211.107 60.8187C179.577 30.5771 120.423 30.5771 88.8926 60.8187L79.2963 69.8729C78.0741 71.0062 76.0630 71.0062 74.8407 69.8729L54.8007 50.9271C52.3556 48.6604 52.3556 44.8396 54.8007 42.5729L61.4385 36.2562Z"/></svg>`,
-          'Coinbase Wallet': `<svg width="24" height="24" viewBox="0 0 1024 1024" fill="#0052ff"><path d="M512 0C229.2 0 0 229.2 0 512s229.2 512 512 512 512-229.2 512-512S794.8 0 512 0zm0 692c-99.4 0-180-80.6-180-180s80.6-180 180-180 180 80.6 180 180-80.6 180-180 180z"/></svg>`
-        };
-
-        // Create button for each connector
-        connectors.forEach((connector) => {
-          const btn = document.createElement('button');
-          const iconHtml = walletIcons[connector.name as keyof typeof walletIcons] || 
-            `<div style="width: 24px; height: 24px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 10px;">${connector.name.substring(0, 2).toUpperCase()}</div>`;
-          
-          btn.innerHTML = `
-            <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-              <div style="display: flex; align-items: center; gap: 12px;">
-                ${iconHtml}
-                <span style="font-size: 16px; font-weight: 500; color: #111827;">${connector.name}</span>
-              </div>
-              <div style="width: 12px; height: 12px; border: 2px solid #d1d5db; border-top: 2px solid #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; display: none;" class="loading"></div>
-            </div>
-          `;
-          btn.className = 'wallet-button';
-          btn.style.cssText = `
-            width: 100%;
-            padding: 16px;
-            background: white;
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-family: inherit;
-            position: relative;
-          `;
-
-          const loadingStyle = document.createElement('style');
-          loadingStyle.textContent = `
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `;
-          document.head.appendChild(loadingStyle);
-
-          btn.onclick = async () => {
-            // Show loading state
-            const loading = btn.querySelector('.loading') as HTMLElement;
-            if (loading) loading.style.display = 'block';
-            btn.style.opacity = '0.7';
-            btn.style.cursor = 'not-allowed';
-            
-            try {
-              // Use wagmi to connect
-              const result = await connect(config, { connector });
-              
-              if (result.accounts && result.accounts.length > 0) {
-                this.account = result.accounts[0];
-                this.chainId = result.chainId;
-                
-                // Get the correct provider and signer after connection
-                const correctProvider = await this.getCorrectProvider();
-                (this as any).provider = correctProvider;
-                this.signer = await correctProvider.getSigner(result.accounts[0]);
-                
-                // Cleanup
-                document.body.removeChild(modalOverlay);
-                document.head.removeChild(style);
-                document.head.removeChild(loadingStyle);
-                
-                this.isInitialized = true;
-                resolve(result.accounts[0]);
-              }
-            } catch (error) {
-              // Restore button state
-              if (loading) loading.style.display = 'none';
-              btn.style.opacity = '1';
-              btn.style.cursor = 'pointer';
-              
-              // If not user cancellation, show error
-              if (error instanceof Error && !error.message.includes('User rejected')) {
-                console.error('Connection failed:', error);
-                // Can show error message here
-              }
-            }
-          };
-
-          walletContainer.appendChild(btn);
-        });
-
-        // Bottom info
-        const footer = document.createElement('div');
-        footer.style.cssText = `
-          margin-top: 20px;
-          padding-top: 16px;
-          border-top: 1px solid #f3f4f6;
-          text-align: center;
-        `;
-
-        const footerText = document.createElement('p');
-        footerText.innerHTML = `
-          <span style="color: #6b7280; font-size: 14px;">New to Ethereum wallets? </span>
-          <a href="#" style="color: #3b82f6; font-size: 14px; text-decoration: none; font-weight: 500;">Learn more</a>
-        `;
-        footerText.style.margin = '0';
-
-        // Event handling
-        closeBtn.onclick = () => {
-          document.body.removeChild(modalOverlay);
-          document.head.removeChild(style);
-          reject(new Error('User cancelled connection'));
-        };
-
-        modalOverlay.onclick = (e) => {
-          if (e.target === modalOverlay) {
-            document.body.removeChild(modalOverlay);
-            document.head.removeChild(style);
-            reject(new Error('User cancelled connection'));
-          }
-        };
-
-        // Assemble modal
-        modalContent.style.position = 'relative';
-        modalContent.appendChild(closeBtn);
-        modalContent.appendChild(title);
-        modalContent.appendChild(walletContainer);
-        footer.appendChild(footerText);
-        modalContent.appendChild(footer);
-        modalOverlay.appendChild(modalContent);
-        document.body.appendChild(modalOverlay);
-      });
-    } catch (error) {
-      throw new Error(`Failed to connect: ${error}`);
-    }
-  }
 
   async connect(): Promise<string> {
-    // If already initialized and has account, return account directly
-    if (this.isInitialized && this.account) {
-      return this.account;
-    }
-
-    // Ensure we have wagmi config before attempting connection
-    if (!this.config) {
-      this.config = getSharedWagmiConfig();
-      if (!this.config) {
-        throw new Error("No wagmi config available. Please ensure DelphinusProvider is used to wrap your app.");
-      }
-    }
-
-    // Check if already connected using wagmi (session recovery)
-    try {
-      const account = getAccount(this.config);
-      if (account.address && account.chainId && account.isConnected) {
-        console.log('Found existing wagmi connection, initializing...');
-        await this.initialize(account.address, account.chainId);
-        return account.address;
-      }
-    } catch (error) {
-      console.log('No existing wagmi connection found, showing connection modal');
-    }
-
-    // Show connection modal as the primary way to connect
-    return await this.connectWithRainbowKit();
+    // First request account access permission
+    const accounts = await this.provider.send("eth_requestAccounts", []);
+    const signer = await this.provider.getSigner();
+    const address = await signer.getAddress();
+    return address;
   }
 
-  // Start adaptive state consistency monitoring
+  // Start adaptive state consistency monitoring with proper cleanup
   private startStateConsistencyMonitoring() {
-    if (this.stateConsistencyChecker) {
-      clearInterval(this.stateConsistencyChecker);
-    }
+    // Always stop any existing monitoring first
+    this.stopStateConsistencyMonitoring();
     
     let checkInterval = 5000; // Start with 5 seconds
     let consecutiveSuccesses = 0;
+    let isMonitoringActive = true; // Flag to control the monitoring loop
     
     const scheduleNext = () => {
+      // Check if monitoring should continue
+      if (!isMonitoringActive || !this.isInitialized) {
+        console.log('🛑 State monitoring stopped due to inactive flag or uninitialized state');
+        return;
+      }
+      
       this.stateConsistencyChecker = setTimeout(async () => {
+        // Double-check if we should still be monitoring
+        if (!isMonitoringActive || !this.isInitialized) {
+          console.log('🛑 State monitoring stopped mid-execution');
+          return;
+        }
+        
         try {
           const hasInconsistency = await this.checkStateConsistency();
           
@@ -994,24 +839,222 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
             }
           }
           
-          scheduleNext();
+          // Only schedule next check if still active
+          if (isMonitoringActive && this.isInitialized) {
+            scheduleNext();
+          }
         } catch (error) {
           console.warn('⚠️ State consistency check failed:', error);
-          scheduleNext();
+          
+          // Only continue if still active and not in critical error state
+          if (isMonitoringActive && this.isInitialized) {
+            // Increase interval on errors to avoid spam
+            checkInterval = Math.min(10000, checkInterval * 1.2);
+            scheduleNext();
+          }
         }
       }, checkInterval);
     };
     
+    // Store the stop function for proper cleanup
+    this.monitoringStopFlag = () => {
+      isMonitoringActive = false;
+    };
+    
     scheduleNext();
-    console.log('🔄 Started adaptive state consistency monitoring');
+    console.log('🔄 Started adaptive state consistency monitoring with cleanup controls');
   }
   
-  // Stop state consistency monitoring
+  // Stop state consistency monitoring with complete cleanup
   private stopStateConsistencyMonitoring() {
+    console.log('🛑 Stopping state consistency monitoring...');
+    
+    // Clear the current timeout
     if (this.stateConsistencyChecker) {
       clearTimeout(this.stateConsistencyChecker);
       this.stateConsistencyChecker = null;
-      console.log('⏹️ Stopped state consistency monitoring');
+    }
+    
+    // Stop the monitoring loop by calling the stop flag function
+    if (this.monitoringStopFlag) {
+      this.monitoringStopFlag();
+      this.monitoringStopFlag = null;
+    }
+    
+    console.log('✅ State consistency monitoring stopped and cleaned up');
+  }
+  
+  // Proactive signer health monitoring
+  private startSignerHealthMonitoring() {
+    // Stop any existing monitoring
+    this.stopSignerHealthMonitoring();
+    
+    const performHealthCheck = async () => {
+      if (!this.isInitialized || !this.signer || !this.account) {
+        return;
+      }
+      
+      try {
+        const now = Date.now();
+        
+        // Only check health every 30 seconds to avoid excessive calls
+        if (now - this.lastSignerHealthCheck < 30000) {
+          return;
+        }
+        
+        this.lastSignerHealthCheck = now;
+        
+        console.log('🔍 Performing proactive signer health check...');
+        
+        // Test 1: Check if signer can get address
+        const signerAddress = await this.signer.getAddress();
+        if (signerAddress.toLowerCase() !== this.account.toLowerCase()) {
+          console.warn('⚠️ Signer health check failed: address mismatch', {
+            signerAddress,
+            expectedAddress: this.account
+          });
+          await this.handleSignerFailure('address_mismatch');
+          return;
+        }
+        
+        // Test 2: Check wagmi connection consistency
+        if (this.config) {
+          const currentAccount = getAccount(this.config);
+          if (!currentAccount.isConnected || 
+              currentAccount.address?.toLowerCase() !== this.account.toLowerCase()) {
+            console.warn('⚠️ Signer health check failed: wagmi disconnected', {
+              wagmiConnected: currentAccount.isConnected,
+              wagmiAddress: currentAccount.address,
+              expectedAddress: this.account
+            });
+            await this.handleSignerFailure('wagmi_disconnected');
+            return;
+          }
+        }
+        
+        // Test 3: Test provider responsiveness with a simple call
+        try {
+          await this.provider.getNetwork();
+        } catch (providerError) {
+          console.warn('⚠️ Signer health check failed: provider unresponsive', providerError);
+          await this.handleSignerFailure('provider_unresponsive');
+          return;
+        }
+        
+        console.log('✅ Signer health check passed');
+        
+      } catch (error) {
+        console.warn('⚠️ Signer health check encountered error:', error);
+        
+        // Check for specific WalletConnect session errors
+        const errorMessage = (error as Error)?.message || String(error);
+        if (errorMessage.includes('No matching session') || 
+            errorMessage.includes('session expired') ||
+            errorMessage.includes('session_request')) {
+          await this.handleSignerFailure('session_expired');
+        } else {
+          await this.handleSignerFailure('unknown_error');
+        }
+      }
+    };
+    
+    // Initial health check after 5 seconds
+    setTimeout(performHealthCheck, 5000);
+    
+    // Then check every 60 seconds
+    this.signerHealthChecker = setInterval(performHealthCheck, 60000);
+    
+    console.log('🔄 Started proactive signer health monitoring');
+  }
+  
+  private stopSignerHealthMonitoring() {
+    if (this.signerHealthChecker) {
+      clearInterval(this.signerHealthChecker);
+      this.signerHealthChecker = null;
+      console.log('🛑 Stopped signer health monitoring');
+    }
+  }
+  
+  // Handle signer failure with appropriate cleanup and recovery
+  private async handleSignerFailure(reason: string) {
+    console.warn(`🚨 Signer failure detected: ${reason}`);
+    
+    // Clear the failed signer immediately
+    this.signer = null;
+    
+    // For session-related failures, trigger full cleanup
+    if (reason === 'session_expired' || reason === 'wagmi_disconnected') {
+      await this.handleWalletConnectSessionExpired(reason);
+    } else {
+      // For other failures, try to recover the signer without full disconnect
+      console.log('🔄 Attempting signer recovery...');
+      try {
+        if (this.account && this.isInitialized) {
+          // Wait a bit before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Try to get a fresh signer
+          this.signer = await this.provider.getSigner(this.account);
+          
+          // Test the new signer
+          const newSignerAddress = await this.signer.getAddress();
+          if (newSignerAddress.toLowerCase() === this.account.toLowerCase()) {
+            console.log('✅ Signer recovery successful');
+          } else {
+            console.error('❌ Signer recovery failed: address mismatch');
+            this.signer = null;
+          }
+        }
+      } catch (recoveryError) {
+        console.error('❌ Signer recovery failed:', recoveryError);
+        this.signer = null;
+      }
+    }
+  }
+  
+  // Validate that provider is actually connected and responsive
+  private async validateProviderConnection(provider: any): Promise<boolean> {
+    try {
+      // Set reasonable timeout for validation
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Provider validation timeout')), 5000);
+      });
+      
+      // Try to get accounts from the provider
+      const accountsPromise = provider.request({ 
+        method: 'eth_accounts' 
+      });
+      
+      const accounts = await Promise.race([accountsPromise, timeoutPromise]);
+      
+      // Check if we got valid accounts
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        console.warn('⚠️ Provider validation failed: no accounts available');
+        return false;
+      }
+      
+      // Try to get chain ID to verify provider is responsive
+      const chainIdPromise = provider.request({ 
+        method: 'eth_chainId' 
+      });
+      
+      const chainId = await Promise.race([chainIdPromise, timeoutPromise]);
+      
+      if (!chainId) {
+        console.warn('⚠️ Provider validation failed: no chain ID');
+        return false;
+      }
+      
+      console.log('✅ Provider validation successful:', { 
+        accountCount: accounts.length, 
+        chainId 
+      });
+      
+      return true;
+      
+    } catch (error) {
+      console.warn('⚠️ Provider validation failed:', error);
+      return false;
     }
   }
   
@@ -1051,7 +1094,8 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
         this.chainId = null;
         this.signer = null;
         this.isInitialized = false;
-        this.stopStateConsistencyMonitoring();
+        // DON'T stop monitoring - keep it running to detect new connections
+        // this.stopStateConsistencyMonitoring();
         return true;
       }
       
@@ -1094,9 +1138,62 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     }
   }
   
+  // Handle WalletConnect session expiration with complete state cleanup
+  private async handleWalletConnectSessionExpired(reason: string) {
+    console.log(`🔌 Handling WalletConnect session expiration: ${reason}`);
+    
+    // Clear all internal state
+    this.signer = null;
+    this.isInitialized = false;
+    this.account = null;
+    this.chainId = null;
+    this.lastKnownWagmiState = null;
+    
+    // Force disconnect wagmi to trigger UI state update
+    console.log('🔌 Forcing wagmi disconnect due to session expiration...');
+    try {
+      const { disconnect } = await import('wagmi/actions');
+      if (this.config) {
+        await disconnect(this.config);
+        console.log('✅ Wagmi disconnected due to session expiration');
+      }
+    } catch (disconnectError) {
+      console.warn('Failed to trigger wagmi disconnect:', disconnectError);
+    }
+    
+    console.log('✅ WalletConnect session cleanup completed');
+  }
+
+  // Reset state for reconnection without stopping monitoring
+  resetForReconnection() {
+    console.log('🔄 Resetting DelphinusRainbowConnector state for reconnection...');
+    
+    // Clear initialization lock to prevent deadlocks
+    this.initializationLock = false;
+    this.initializationPromise = null;
+    
+    // Clean up resources but keep monitoring running
+    if (this.signer) {
+      this.signer = null;
+    }
+    this.account = null;
+    this.chainId = null;
+    this.isInitialized = false;
+    this.lastKnownWagmiState = null;
+    
+    console.log('✅ State reset completed, monitoring continues for new connections');
+  }
+
   close() {
-    // Stop state monitoring first
+    console.log('🔌 Closing DelphinusRainbowConnector and cleaning up resources...');
+    
+    // Stop all monitoring first to prevent memory leaks
     this.stopStateConsistencyMonitoring();
+    this.stopSignerHealthMonitoring();
+    
+    // Clear initialization lock to prevent deadlocks
+    this.initializationLock = false;
+    this.initializationPromise = null;
     
     // Clean up resources
     if (this.signer) {
@@ -1142,6 +1239,30 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   }
 
   async getJsonRpcSigner(): Promise<JsonRpcSigner> {
+    // Always perform lightweight validation before returning signer
+    if (this.signer && this.account && this.config) {
+      try {
+        // Quick validation: check if wagmi is still connected
+        const currentAccount = getAccount(this.config);
+        if (!currentAccount.isConnected || 
+            currentAccount.address?.toLowerCase() !== this.account.toLowerCase()) {
+          console.warn('⚠️ Signer invalid: wagmi connection lost');
+          this.signer = null;
+        } else {
+          // Additional lightweight check: verify signer hasn't been invalidated
+          // This is a quick check that doesn't require network calls
+          const signerProvider = this.signer.provider;
+          if (!signerProvider || signerProvider !== this.provider) {
+            console.warn('⚠️ Signer invalid: provider mismatch');
+            this.signer = null;
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ Signer validation failed:', error);
+        this.signer = null;
+      }
+    }
+    
     if (!this.signer) {
       // 尝试重新获取 signer - 但要先检查连接状态
       if (this.account && this.isInitialized && this.config) {
@@ -1163,7 +1284,19 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
           
           // Get signer from current provider
           this.signer = await this.provider.getSigner(this.account);
-          console.log('✅ Re-obtained signer successfully');
+          
+          // Immediate validation of new signer
+          const signerAddress = await this.signer.getAddress();
+          if (signerAddress.toLowerCase() !== this.account.toLowerCase()) {
+            console.error('❌ New signer address mismatch:', {
+              signerAddress,
+              expectedAddress: this.account
+            });
+            this.signer = null;
+            throw new Error("Signer address mismatch after re-obtaining. Please reconnect your wallet.");
+          }
+          
+          console.log('✅ Re-obtained and validated signer successfully');
           
         } catch (error: any) {
           this.signer = null;
@@ -1318,13 +1451,36 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
                                e?.message?.includes('User rejected');
         
         if (isNetworkNotConfigured) {
-          rejectOnce(new Error(`Network ${chainHexId} is not configured in your wallet. Please add it manually and try again.`));
+          rejectOnce(new Error(
+            `Network ${chainHexId} (chain ${targetChainId}) is not configured in your wallet. ` +
+            `Please add this network manually and try again.`
+          ));
         } else if (isUserRejection) {
-          rejectOnce(new Error(`Network switch rejected by user.`));
+          rejectOnce(new Error(
+            `Network switch was rejected by user. You are still on the previous network. ` +
+            `Please manually switch to chain ${targetChainId} to continue.`
+          ));
         } else {
-          // For other errors, clear signer but keep connection
-          this.signer = null;
-          rejectOnce(new Error(`Network switch failed: ${e?.message || 'Unknown error'}`));
+          // For other errors, verify current network state before rejecting
+          this.getNetworkId().then(currentNetwork => {
+            if (Number(currentNetwork) === targetChainId) {
+              console.log('✅ Network switch actually succeeded despite error');
+              this.chainId = targetChainId;
+              resolveOnce();
+            } else {
+              console.error(`❌ Network switch failed: expected ${targetChainId}, currently on ${currentNetwork}`);
+              this.signer = null;
+              rejectOnce(new Error(
+                `Network switch failed: ${e?.message || 'Unknown error'}. ` +
+                `Expected chain ${targetChainId}, currently on ${currentNetwork}. ` +
+                `Please manually switch to the correct network.`
+              ));
+            }
+          }).catch(verifyError => {
+            console.error('❌ Network verification failed:', verifyError);
+            this.signer = null;
+            rejectOnce(new Error(`Network switch failed: ${e?.message || 'Unknown error'}`));
+          });
         }
       });
     });
@@ -1338,6 +1494,72 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       throw new Error("Signer not initialized. Please connect wallet first.");
     }
     
+    // CRITICAL: Check actual wallet connection status before signing
+    try {
+      console.log('🔍 Verifying wallet connection status before signing...');
+      
+      // Check wagmi connection status
+      if (!this.config) {
+        console.error('❌ Wagmi config not available');
+        this.isInitialized = false;
+        this.account = null;
+        this.signer = null;
+        throw new Error("Wagmi config not available. Please reconnect your wallet.");
+      }
+      
+      const currentAccount = getAccount(this.config);
+      if (!currentAccount.isConnected) {
+        console.error('❌ Wallet disconnected according to wagmi');
+        this.isInitialized = false;
+        this.account = null;
+        this.signer = null;
+        throw new Error("Wallet is disconnected. Please reconnect your wallet.");
+      }
+      
+      // Verify the connected account matches our expected account
+      if (!this.account || currentAccount.address?.toLowerCase() !== this.account.toLowerCase()) {
+        console.error('❌ Account mismatch or account lost:', {
+          expected: this.account,
+          current: currentAccount.address,
+          isConnected: currentAccount.isConnected
+        });
+        this.isInitialized = false;
+        this.account = null;
+        this.signer = null;
+        throw new Error("Account mismatch detected. Current wallet account doesn't match expected account. Please reconnect.");
+      }
+      
+      // Test the signer by getting its address (this will fail if WalletConnect session is stale)
+      console.log('🧪 Testing signer connection...');
+      const signerAddress = await this.signer.getAddress();
+      if (signerAddress.toLowerCase() !== this.account.toLowerCase()) {
+        console.error('❌ Signer address mismatch:', {
+          signerAddress,
+          expectedAddress: this.account
+        });
+        this.signer = null;
+        throw new Error("Signer address mismatch. Please reconnect your wallet.");
+      }
+      
+      console.log('✅ Wallet connection verified, proceeding with signature...');
+      
+    } catch (verificationError: any) {
+      console.error('❌ Wallet connection verification failed:', verificationError);
+      
+      // Check if this is a WalletConnect session error
+      const errorMessage = verificationError?.message || String(verificationError || '');
+      if (errorMessage.includes('No matching session') || 
+          errorMessage.includes('session expired') ||
+          errorMessage.includes('session_request')) {
+        
+        await this.handleWalletConnectSessionExpired('verification failed');
+        throw new Error("WalletConnect session expired or invalid. Please disconnect and reconnect your wallet.");
+      }
+      
+      // For other errors, re-throw the original error
+      throw verificationError;
+    }
+    
     console.log('📝 About to call signer.signMessage()...');
     try {
       const signature = await this.signer.signMessage(message);
@@ -1345,6 +1567,17 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       return signature;
     } catch (error: any) {
       console.error('❌ Signature failed:', error);
+      
+      // Check if this is a WalletConnect session error
+      const errorMessage = error?.message || String(error || '');
+      if (errorMessage.includes('No matching session') || 
+          errorMessage.includes('session expired') ||
+          errorMessage.includes('session_request')) {
+        
+        await this.handleWalletConnectSessionExpired('signing failed');
+        throw new Error("WalletConnect session expired during signing. Please disconnect and reconnect your wallet.");
+      }
+      
       this.signer = null;
       throw error;
     }

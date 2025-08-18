@@ -160,7 +160,10 @@ const Index = () => {
     refetch: refetchCombinedData 
   } = useQuery({
     queryKey: ['combinedStakingData', l2Account?.getPrivateKey?.()],
-    queryFn: () => stakingService.getCombinedStakingData(l2Account?.getPrivateKey?.()),
+    queryFn: () => {
+      const privateKey = l2Account?.getPrivateKey?.();
+      return stakingService.getCombinedStakingData(privateKey);
+    },
     refetchInterval: 30000, // Refetch every 30 seconds
     enabled: true,
   });
@@ -186,7 +189,7 @@ const Index = () => {
       const processingKey = l2Account.getPrivateKey();
       return await stakingService.queryUserState(processingKey);
     },
-    enabled: !!l2Account && !!l2Account.getPrivateKey && isL2Connected,
+    enabled: Boolean(l2Account && l2Account.getPrivateKey && isL2Connected),
     refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
   });
 

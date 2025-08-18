@@ -3,6 +3,7 @@ import { withProvider } from '../providers/provider';
 import { 
   initializeRainbowProviderIfNeeded,
   validateAndSwitchNetwork,
+  validateCurrentNetwork,
   executeDeposit,
   ERROR_MESSAGES,
   createError
@@ -10,8 +11,55 @@ import {
 import { L2AccountInfo } from '../models/L2AccountInfo';
 import { loginL1AccountAsync, loginL2AccountAsync, depositAsync } from '../store/thunks';
 import { resetAccountState, setL1Account } from '../store/account-slice';
-import { clearProviderInstance } from '../providers/provider';
+import { clearProviderInstance, resetProviderForReconnection } from '../providers/provider';
 import type { L1AccountInfo, AppDispatch, SerializableTransactionReceipt } from '../types';
+
+// Helper function to handle WalletConnect session cleanup and state reset
+async function handleWalletConnectSessionCleanup(dispatch: AppDispatch) {
+  try {
+    // Import clear functions dynamically
+    const { clearWalletConnectStorageOnly, validateAndCleanWalletConnectStorage } = await import('../delphinus-provider');
+    
+    // First try to validate and clean sessions (this will only remove truly invalid ones)
+    console.log('🔍 Validating and cleaning WalletConnect sessions...');
+    const hasValidSession = await validateAndCleanWalletConnectStorage();
+    
+    if (!hasValidSession) {
+      console.log('🧹 No valid sessions found, clearing WalletConnect storage...');
+      clearWalletConnectStorageOnly();
+    } else {
+      console.log('⚠️ Some valid sessions exist, but current session appears stale');
+      clearWalletConnectStorageOnly();
+    }
+    
+    // Reset provider for reconnection but keep monitoring running  
+    resetProviderForReconnection();
+    
+    // CRITICAL: Force disconnect wagmi to clear L1 state
+    console.log('🔌 Forcing wagmi disconnect to clear L1 state...');
+    try {
+      const { disconnect } = await import('wagmi/actions');
+      const { getSharedWagmiConfig } = await import('../providers/provider');
+      
+      const config = getSharedWagmiConfig();
+      if (config) {
+        await disconnect(config);
+        console.log('✅ Wagmi disconnected successfully');
+      }
+    } catch (disconnectError) {
+      console.warn('Failed to disconnect wagmi:', disconnectError);
+    }
+    
+    // Clear Redux L1 state
+    console.log('🧹 Clearing Redux L1 state...');
+    dispatch(resetAccountState());
+    
+    console.log('✅ Invalid sessions and L1 state cleared');
+    
+  } catch (clearError) {
+    console.warn('Failed to clear invalid session:', clearError);
+  }
+}
 
 interface WalletActionsHookReturn {
   connectAndLoginL1: (dispatch: AppDispatch) => Promise<L1AccountInfo>;
@@ -51,8 +99,19 @@ export function useWalletActions(
       // Set to loading state
       dispatch(loginL1AccountAsync.pending('', undefined));
       
-      // Clear provider instance to ensure using latest wallet state
-      clearProviderInstance();
+      // Reset provider state for reconnection but keep monitoring running
+      resetProviderForReconnection();
+      
+      // Proactively validate and clean WalletConnect sessions before connecting
+      try {
+        console.log('🔍 Proactively validating WalletConnect sessions before L1 connection...');
+        const { validateAndCleanWalletConnectStorage } = await import('../delphinus-provider');
+        await validateAndCleanWalletConnectStorage();
+        console.log('✅ WalletConnect session validation completed');
+      } catch (validationError) {
+        console.warn('⚠️ WalletConnect session validation failed, but continuing:', validationError);
+        // Don't fail the connection, just log the warning
+      }
       
       // Initialize Provider
       await initializeRainbowProviderIfNeeded(address, chainId);
@@ -146,28 +205,16 @@ export function useWalletActions(
           errorMessage.includes('No matching session') ||
           errorMessage.includes('session_request') ||
           errorMessage.includes('without any listeners')) {
-        console.log('🔄 WalletConnect session error detected, clearing invalid session...');
+        console.log('🔄 WalletConnect session error detected during L2 login, clearing invalid sessions...');
         
-        try {
-          // Import clear functions dynamically
-          const { clearWalletConnectStorage } = await import('../delphinus-provider');
-          
-          // Clear WalletConnect storage
-          clearWalletConnectStorage();
-          
-          // Clear provider instance
-          clearProviderInstance();
-          
-          console.log('✅ Invalid session cleared, application should handle reconnection');
-          
-          // Create a more descriptive error for the application
-          const sessionError = new Error('WalletConnect session expired. Please reconnect your wallet.');
-          (sessionError as any).code = 'SESSION_EXPIRED';
-          dispatch(loginL2AccountAsync.rejected(sessionError as any, '', messageToSign));
-          throw sessionError;
-        } catch (clearError) {
-          console.warn('Failed to clear invalid session:', clearError);
-        }
+        // Use centralized cleanup function
+        await handleWalletConnectSessionCleanup(dispatch);
+        
+        // Create a more descriptive error for the application (outside try-catch to avoid confusion)
+        const sessionError = new Error('WalletConnect session expired. Your wallet has been automatically disconnected. Please reconnect to continue.');
+        (sessionError as any).code = 'SESSION_MISMATCH';
+        dispatch(loginL2AccountAsync.rejected(sessionError as any, '', messageToSign));
+        throw sessionError;
       }
       
       dispatch(loginL2AccountAsync.rejected(error as any, '', messageToSign));
@@ -211,8 +258,8 @@ export function useWalletActions(
 
   const disconnect = useCallback(async () => {
     try {
-      // Only clear provider instance but keep configuration for reconnection
-      clearProviderInstance();
+      // Reset provider for reconnection but keep monitoring running
+      resetProviderForReconnection();
       
       // Provider disconnected successfully
     } catch (error) {
