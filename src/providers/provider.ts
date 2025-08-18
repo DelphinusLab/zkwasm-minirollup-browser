@@ -359,6 +359,8 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
   private chainId: number | null = null;
   private config: ReturnType<typeof createConfig> | null = null;
   private isInitialized: boolean = false;
+  private stateConsistencyChecker: NodeJS.Timeout | null = null;
+  private lastKnownWagmiState: { address?: string; chainId?: number; isConnected: boolean } | null = null;
 
   constructor() {
     // Don't rely on window.ethereum for initialization
@@ -403,7 +405,9 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       }
 
       // If no active connection, try to auto-reconnect (for WalletConnect session recovery)
-      console.log('No active connection found, attempting to reconnect...');
+      if (!this.isInitialized) {
+        console.log('No active connection found, attempting to reconnect...');
+      }
       
       // Import wagmi's reconnect function
       const { reconnect } = await import('wagmi/actions');
@@ -412,10 +416,8 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
         const reconnectResult = await reconnect(this.config) as any[];
         
         if (reconnectResult && reconnectResult.length > 0) {
-          console.log('✅ Successfully reconnected, getting provider...');
-          
-          // 等待连接稳定
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Wait for connection to stabilize
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           // Get the reconnected account
           const reconnectedAccount = getAccount(this.config);
@@ -424,19 +426,24 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
             const provider = await reconnectedAccount.connector.getProvider();
             
             if (provider) {
-              console.log('✅ Successfully got provider after reconnection');
+              if (!this.isInitialized) {
+                console.log('✅ Successfully reconnected and got provider');
+              }
               return new BrowserProvider(provider as Eip1193Provider, "any");
             }
           }
         }
       } catch (reconnectError) {
-        console.warn('Reconnection failed (this is normal for first-time connections):', reconnectError);
+        if (!this.isInitialized) {
+          console.warn('Reconnection failed (normal for first-time connections)');
+        }
       }
 
       // If all else fails, check if we have window.ethereum as last resort
-      // But only for browser provider, not for WalletConnect
       if (hasEthereumProvider()) {
-        console.warn('⚠️ Falling back to window.ethereum - this may cause state inconsistencies with WalletConnect');
+        if (!this.isInitialized) {
+          console.warn('⚠️ Falling back to window.ethereum');
+        }
         return new BrowserProvider(window.ethereum, "any");
       }
 
@@ -455,35 +462,79 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     }
   }
 
-  // Provider state validation with recovery mechanism
-  private async validateProviderState(expectedAccount?: string): Promise<void> {
-    try {
-      // Add a small delay to allow provider state to settle after page refresh
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const accounts = await this.provider.send("eth_accounts", []);
-      console.log('🔍 Provider accounts during validation:', accounts);
-      
-      // Check wagmi state
-      const wagmiAccount = this.config ? getAccount(this.config) : null;
-      console.log('🔍 Wagmi account state:', wagmiAccount?.isConnected, wagmiAccount?.address, wagmiAccount?.status);
-      
-      // Verify expected account if provided
-      if (expectedAccount) {
-        const currentAccounts = await this.provider.send("eth_accounts", []);
-        if (!currentAccounts || currentAccounts.length === 0) {
-          throw new Error(`Provider has no connected accounts. Expected account: ${expectedAccount}`);
+  // Active provider state synchronization with polling
+  private async waitForProviderStateSync(expectedAccount?: string, maxAttempts: number = 20): Promise<void> {
+    console.log('🔄 Starting provider state synchronization...', { expectedAccount, maxAttempts });
+    
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const [wagmiState, providerAccounts] = await Promise.all([
+          this.config ? getAccount(this.config) : null,
+          this.provider.send("eth_accounts", [])
+        ]);
+        
+        console.log(`🔍 Sync attempt ${attempt}/${maxAttempts}:`, {
+          wagmiConnected: wagmiState?.isConnected,
+          wagmiAddress: wagmiState?.address,
+          wagmiStatus: wagmiState?.status,
+          providerAccounts: providerAccounts,
+          expectedAccount
+        });
+        
+        // Check basic provider state
+        if (!providerAccounts || providerAccounts.length === 0) {
+          if (attempt === maxAttempts) {
+            throw new Error(`Provider has no connected accounts after ${maxAttempts} attempts`);
+          }
+          console.log(`⏳ Provider accounts not ready, waiting... (${attempt}/${maxAttempts})`);
+          await new Promise(resolve => setTimeout(resolve, 250));
+          continue;
         }
         
-        if (!currentAccounts.some((addr: string) => addr.toLowerCase() === expectedAccount.toLowerCase())) {
-          throw new Error(`Provider account mismatch. Provider accounts: ${currentAccounts}, Expected: ${expectedAccount}`);
+        // If expectedAccount is provided, verify it matches
+        if (expectedAccount) {
+          const accountMatch = providerAccounts.some((addr: string) => 
+            addr.toLowerCase() === expectedAccount.toLowerCase()
+          );
+          
+          if (!accountMatch) {
+            if (attempt === maxAttempts) {
+              throw new Error(`Account mismatch after ${maxAttempts} attempts. Provider: ${providerAccounts}, Expected: ${expectedAccount}`);
+            }
+            console.log(`⏳ Account mismatch, waiting for sync... (${attempt}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, 250));
+            continue;
+          }
         }
         
-        console.log('✅ Provider account verification passed');
+        // Check wagmi state consistency if config is available
+        if (this.config && wagmiState) {
+          if (!wagmiState.isConnected || 
+              (expectedAccount && wagmiState.address?.toLowerCase() !== expectedAccount.toLowerCase())) {
+            if (attempt === maxAttempts) {
+              throw new Error(`Wagmi state inconsistent after ${maxAttempts} attempts. Wagmi: ${JSON.stringify({
+                connected: wagmiState.isConnected,
+                address: wagmiState.address,
+                status: wagmiState.status
+              })}, Expected: ${expectedAccount}`);
+            }
+            console.log(`⏳ Wagmi state not synced, waiting... (${attempt}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, 250));
+            continue;
+          }
+        }
+        
+        console.log(`✅ Provider state synchronized successfully on attempt ${attempt}`);
+        return;
+        
+      } catch (error: any) {
+        if (attempt === maxAttempts) {
+          console.error('❌ Provider state sync failed permanently:', error);
+          throw new Error(`Provider state synchronization failed: ${error.message}`);
+        }
+        console.warn(`⚠️ Sync attempt ${attempt} failed, retrying...`, error.message);
+        await new Promise(resolve => setTimeout(resolve, 250));
       }
-      
-    } catch (error) {
-      throw error;
     }
   }
 
@@ -493,11 +544,25 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       throw new Error("No account connected");
     }
 
-    if (this.isInitialized && this.account === account && this.chainId === chainId) {
+    // Prevent duplicate initialization
+    if (this.isInitialized && 
+        this.account?.toLowerCase() === account.toLowerCase() && 
+        this.chainId === chainId) {
       console.log('✅ Already initialized with same account/chain, skipping');
       return;
     }
-    console.log('Initializing DelphinusRainbowConnector...', { account, chainId });
+    
+    // Log only if this is truly a new initialization
+    if (!this.isInitialized) {
+      console.log('🔄 Initializing DelphinusRainbowConnector...', { account, chainId });
+    } else {
+      console.log('🔄 Re-initializing with different account/chain:', {
+        oldAccount: this.account,
+        newAccount: account,
+        oldChain: this.chainId,
+        newChain: chainId
+      });
+    }
 
     // Ensure we have wagmi config
     if (!this.config) {
@@ -514,8 +579,22 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
       // Replace the temporary provider with the correct one
       (this as any).provider = correctProvider;
       
-      // Enhanced provider account verification with state recovery
-      await this.validateProviderState(account);
+      // Basic provider state validation (simplified)
+      try {
+        // Wait for provider to be ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Verify provider has accounts
+        const accounts = await this.provider.send("eth_accounts", []);
+        if (!accounts || accounts.length === 0) {
+          throw new Error(`Provider has no connected accounts`);
+        }
+        
+        console.log('✅ Provider state validated successfully');
+      } catch (validationError: any) {
+        console.error('❌ Provider state validation failed:', validationError);
+        throw new Error(`Provider validation failed: ${validationError.message}`);
+      }
 
       // Update internal state
       this.account = account;
@@ -586,6 +665,12 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
         }
         
         this.isInitialized = true;
+        
+        // Only start monitoring if not already started
+        if (!this.stateConsistencyChecker) {
+          this.startStateConsistencyMonitoring();
+        }
+        
         console.log('✅ DelphinusRainbowConnector initialized successfully');
         
       } catch (signerError) {
@@ -883,7 +968,136 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     return await this.connectWithRainbowKit();
   }
 
+  // Start adaptive state consistency monitoring
+  private startStateConsistencyMonitoring() {
+    if (this.stateConsistencyChecker) {
+      clearInterval(this.stateConsistencyChecker);
+    }
+    
+    let checkInterval = 5000; // Start with 5 seconds
+    let consecutiveSuccesses = 0;
+    
+    const scheduleNext = () => {
+      this.stateConsistencyChecker = setTimeout(async () => {
+        try {
+          const hasInconsistency = await this.checkStateConsistency();
+          
+          if (hasInconsistency) {
+            // If inconsistency found, check more frequently
+            consecutiveSuccesses = 0;
+            checkInterval = Math.max(1000, checkInterval / 2);
+          } else {
+            // If consistent, gradually increase interval
+            consecutiveSuccesses++;
+            if (consecutiveSuccesses >= 3) {
+              checkInterval = Math.min(30000, checkInterval * 1.5); // Max 30 seconds
+            }
+          }
+          
+          scheduleNext();
+        } catch (error) {
+          console.warn('⚠️ State consistency check failed:', error);
+          scheduleNext();
+        }
+      }, checkInterval);
+    };
+    
+    scheduleNext();
+    console.log('🔄 Started adaptive state consistency monitoring');
+  }
+  
+  // Stop state consistency monitoring
+  private stopStateConsistencyMonitoring() {
+    if (this.stateConsistencyChecker) {
+      clearTimeout(this.stateConsistencyChecker);
+      this.stateConsistencyChecker = null;
+      console.log('⏹️ Stopped state consistency monitoring');
+    }
+  }
+  
+  // Check and correct state inconsistencies (returns true if inconsistency found)
+  private async checkStateConsistency(): Promise<boolean> {
+    if (!this.config || !this.isInitialized) {
+      return false;
+    }
+    
+    try {
+      const [wagmiState, providerAccounts] = await Promise.all([
+        getAccount(this.config),
+        this.provider.send("eth_accounts", []).catch(() => [])
+      ]);
+      
+      let hasInconsistency = false;
+      
+      // Check if wagmi state has changed significantly
+      const stateChanged = !this.lastKnownWagmiState || 
+        this.lastKnownWagmiState.address !== wagmiState.address ||
+        this.lastKnownWagmiState.chainId !== wagmiState.chainId ||
+        this.lastKnownWagmiState.isConnected !== wagmiState.isConnected;
+      
+      if (stateChanged) {
+        this.lastKnownWagmiState = {
+          address: wagmiState.address,
+          chainId: wagmiState.chainId,
+          isConnected: wagmiState.isConnected
+        };
+        hasInconsistency = true;
+      }
+      
+      // Detect disconnection
+      if (!wagmiState.isConnected && this.account) {
+        console.log('⚠️ Wagmi disconnection detected, cleaning up');
+        this.account = null;
+        this.chainId = null;
+        this.signer = null;
+        this.isInitialized = false;
+        this.stopStateConsistencyMonitoring();
+        return true;
+      }
+      
+      // Detect account change
+      if (wagmiState.isConnected && wagmiState.address && 
+          this.account && wagmiState.address.toLowerCase() !== this.account.toLowerCase()) {
+        console.log('⚠️ Account change detected:', this.account, '→', wagmiState.address);
+        this.account = wagmiState.address;
+        this.signer = null;
+        hasInconsistency = true;
+      }
+      
+      // Detect network change
+      if (wagmiState.chainId && this.chainId && wagmiState.chainId !== this.chainId) {
+        console.log('⚠️ Network change detected:', this.chainId, '→', wagmiState.chainId);
+        this.chainId = wagmiState.chainId;
+        this.signer = null;
+        hasInconsistency = true;
+      }
+      
+      // Only log provider/wagmi mismatch if it's a new inconsistency
+      if (wagmiState.isConnected && wagmiState.address && providerAccounts.length > 0) {
+        const providerHasAccount = providerAccounts.some((addr: string) => 
+          addr.toLowerCase() === wagmiState.address!.toLowerCase()
+        );
+        
+        if (!providerHasAccount && hasInconsistency) {
+          console.log('⚠️ Provider/Wagmi account mismatch:', {
+            wagmiAddress: wagmiState.address,
+            providerAccounts: providerAccounts
+          });
+        }
+      }
+      
+      return hasInconsistency;
+      
+    } catch (error) {
+      console.warn('⚠️ State consistency check error:', error);
+      return true; // Treat errors as inconsistency
+    }
+  }
+  
   close() {
+    // Stop state monitoring first
+    this.stopStateConsistencyMonitoring();
+    
     // Clean up resources
     if (this.signer) {
       this.signer = null;
@@ -891,6 +1105,7 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     this.account = null;
     this.chainId = null;
     this.isInitialized = false;
+    this.lastKnownWagmiState = null;
     
     // Force clear wagmi config to reset WalletConnect state
     try {
@@ -933,8 +1148,8 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
         try {
           console.log('🔄 Attempting to re-obtain signer...');
           
-          // Validate provider state first
-          await this.validateProviderState(this.account);
+          // Wait for provider state synchronization
+          await this.waitForProviderStateSync(this.account);
           
           // Check if account is still connected in wagmi before attempting to get signer
           const currentAccount = getAccount(this.config);
@@ -973,48 +1188,126 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
     return new DelphinusContract(contractAddress, abi, signer);
   }
 
+  // Event-driven network switching with active verification
   async switchNet(chainHexId: string) {
-    const chainId = parseInt(chainHexId, 16);
+    const targetChainId = parseInt(chainHexId, 16);
     const currentId = await this.getNetworkId();
     
-    if (currentId.toString() !== chainId.toString()) {
-      try {
-        await this.provider.send("wallet_switchEthereumChain", [
-          { chainId: chainHexId },
-        ]);
-        
-        // Verify the switch actually happened
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for network to stabilize
-        const newChainId = await this.getNetworkId();
-        
-        if (newChainId.toString() !== chainId.toString()) {
-          throw new Error(`Network switch verification failed: requested ${chainId}, still on ${newChainId}`);
+    if (currentId.toString() === targetChainId.toString()) {
+      console.log(`✅ Already on target network ${targetChainId}`);
+      return;
+    }
+    
+    console.log(`🔄 Switching from chain ${currentId} to ${targetChainId} (${chainHexId})`);
+    
+    return new Promise<void>((resolve, reject) => {
+      let networkChangeListener: ((chainId: string) => void) | null = null;
+      let timeoutId: NodeJS.Timeout | null = null;
+      let isResolved = false;
+      
+      const cleanup = () => {
+        if (networkChangeListener && window.ethereum) {
+          window.ethereum.removeListener('chainChanged', networkChangeListener);
         }
-        
-        console.log(`✅ Network switch successful: now on chain ${newChainId}`);
-        
-        // Update internal state
-        this.chainId = chainId;
-        
-        // Validate provider state after network switch
-        await this.validateProviderState(this.account || undefined);
-        
-        // Re-get signer to ensure it uses the new network
-        if (this.account) {
-          try {
-            this.signer = await this.provider.getSigner(this.account);
-            console.log('✅ Signer updated for new network');
-          } catch (signerError) {
-            console.warn('⚠️ Failed to update signer after network switch:', signerError);
-            // Don't throw here, let subsequent operations handle signer recreation
-            this.signer = null;
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      };
+      
+      const resolveOnce = (result?: void) => {
+        if (!isResolved) {
+          isResolved = true;
+          cleanup();
+          resolve(result);
+        }
+      };
+      
+      const rejectOnce = (error: any) => {
+        if (!isResolved) {
+          isResolved = true;
+          cleanup();
+          reject(error);
+        }
+      };
+      
+      // Set up network change listener BEFORE initiating switch
+      if (window.ethereum) {
+        networkChangeListener = (newChainId: string) => {
+          const newChainIdInt = parseInt(newChainId, 16);
+          console.log(`📡 Network change detected: ${newChainIdInt} (${newChainId})`);
+          
+          if (newChainIdInt === targetChainId) {
+            console.log(`✅ Network switch confirmed via event: now on ${newChainIdInt}`);
+            
+            // Update internal state
+            this.chainId = targetChainId;
+            
+            // Verify state synchronization and update signer
+            this.waitForProviderStateSync(this.account || undefined)
+              .then(async () => {
+                if (this.account) {
+                  try {
+                    this.signer = await this.provider.getSigner(this.account);
+                    console.log('✅ Signer updated for new network');
+                  } catch (signerError) {
+                    console.warn('⚠️ Failed to update signer after network switch:', signerError);
+                    this.signer = null;
+                  }
+                }
+                resolveOnce();
+              })
+              .catch(syncError => {
+                console.error('❌ Provider state sync failed after network switch:', syncError);
+                rejectOnce(new Error(`Network switched but provider state sync failed: ${syncError.message}`));
+              });
           }
-        }
-      } catch (e: any) {
-        console.error('❌ Network switch failed:', e);
+        };
         
-        // Check if it's a user rejection vs. network not configured
-        // Handle both direct error codes and ethers.js wrapped errors
+        window.ethereum.on('chainChanged', networkChangeListener);
+      }
+      
+      // Set timeout for the entire operation
+      timeoutId = setTimeout(() => {
+        rejectOnce(new Error(`Network switch timeout after 15 seconds. Target: ${targetChainId} (${chainHexId})`));
+      }, 15000);
+      
+      // Initiate the network switch
+      this.provider.send("wallet_switchEthereumChain", [
+        { chainId: chainHexId },
+      ]).then(() => {
+        console.log('📡 Network switch request sent successfully');
+        
+        // Give some time for the event to fire, then do a fallback check
+        setTimeout(async () => {
+          if (!isResolved) {
+            try {
+              const currentNetwork = await this.getNetworkId();
+              if (currentNetwork.toString() === targetChainId.toString()) {
+                console.log('✅ Network switch confirmed via fallback check');
+                this.chainId = targetChainId;
+                
+                // Update provider state and signer
+                await this.waitForProviderStateSync(this.account || undefined);
+                if (this.account) {
+                  try {
+                    this.signer = await this.provider.getSigner(this.account);
+                    console.log('✅ Signer updated for new network');
+                  } catch (signerError) {
+                    console.warn('⚠️ Failed to update signer after network switch:', signerError);
+                    this.signer = null;
+                  }
+                }
+                resolveOnce();
+              }
+            } catch (error) {
+              console.warn('⚠️ Fallback network check failed:', error);
+            }
+          }
+        }, 2000);
+      }).catch((e: any) => {
+        console.error('❌ Network switch request failed:', e);
+        
+        // Check error types
         const isNetworkNotConfigured = e?.code === 4902 || 
                                       e?.error?.code === 4902 ||
                                       e?.message?.includes('Unrecognized chain ID') ||
@@ -1025,23 +1318,16 @@ export class DelphinusRainbowConnector extends DelphinusBaseProvider<BrowserProv
                                e?.message?.includes('User rejected');
         
         if (isNetworkNotConfigured) {
-          console.warn(`⚠️ Network ${chainHexId} is not configured in wallet, but keeping connection intact`);
-          throw new Error(`Network ${chainHexId} is not configured in your wallet. Please add it manually and try again.`);
+          rejectOnce(new Error(`Network ${chainHexId} is not configured in your wallet. Please add it manually and try again.`));
+        } else if (isUserRejection) {
+          rejectOnce(new Error(`Network switch rejected by user.`));
+        } else {
+          // For other errors, clear signer but keep connection
+          this.signer = null;
+          rejectOnce(new Error(`Network switch failed: ${e?.message || 'Unknown error'}`));
         }
-        
-        if (isUserRejection) {
-          console.warn(`⚠️ User rejected network switch to ${chainHexId}, but keeping connection intact`);
-          throw new Error(`Network switch rejected by user.`);
-        }
-        
-        // For any network switch error, DON'T reset the provider state
-        // Just clear the signer to force recreation on next use
-        console.warn('⚠️ Network switch failed, clearing signer but keeping connection');
-        this.signer = null;
-        
-        throw new Error(`Network switch failed: ${e?.message || 'Unknown error'}`);
-      }
-    }
+      });
+    });
   }
 
   async sign(message: string): Promise<string> {
