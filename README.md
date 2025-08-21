@@ -523,6 +523,7 @@ function AdvancedWalletComponent() {
 
   const handleConnect = async () => {
     try {
+      // ✅ useWalletActions requires dispatch parameter
       const result = await connectAndLoginL1(dispatch);
       console.log('Connected successfully!', result);
     } catch (error) {
@@ -532,6 +533,7 @@ function AdvancedWalletComponent() {
 
   const handleL2Login = async () => {
     try {
+      // ✅ useWalletActions requires dispatch + messageToSign
       await loginL2(dispatch, "MyApp");
       console.log('L2 login successful!');
     } catch (error) {
@@ -546,6 +548,7 @@ function AdvancedWalletComponent() {
     }
 
     try {
+      // ✅ useWalletActions requires dispatch + full params
       await deposit(dispatch, {
         tokenIndex: 0,
         amount: 0.01,
@@ -865,17 +868,25 @@ function PIDDiagnostic() {
 }
 ```
 
-#### Advanced Hook Dependencies (For Split Hooks)
+#### API Differences: useWalletContext vs useWalletActions
 ```tsx
-// ❌ Wrong - Missing dependencies when using split hooks
-const { connectAndLoginL1 } = useWalletActions(); 
+// ✅ RECOMMENDED: useWalletContext (No dispatch needed)
+const { connectL1, connectL2, deposit } = useWalletContext();
 
-// ✅ Correct - With required dependencies
-const { isConnected, address, chainId } = useConnection();
-const { connectAndLoginL1 } = useWalletActions(address, chainId);
+await connectL1();     // ✅ No parameters needed
+await connectL2();     // ✅ Uses appName from Provider automatically  
+await deposit({ tokenIndex: 0, amount: 0.01 }); // ✅ Simple parameters
 
-// ✅ Best - Use unified context instead
-const { isConnected, address, chainId, connectL1 } = useWalletContext();
+// ⚠️ ADVANCED: useWalletActions (Requires dispatch)
+const dispatch = useDispatch();
+const { connectAndLoginL1, loginL2, deposit } = useWalletActions(address, chainId);
+
+await connectAndLoginL1(dispatch);           // ❗ Requires dispatch
+await loginL2(dispatch, "Custom Message");   // ❗ Requires dispatch + custom message
+await deposit(dispatch, { tokenIndex: 0, amount: 0.01, l1account, l2account }); // ❗ Full params
+
+// ❌ Wrong - Missing dependencies for useWalletActions
+const { connectAndLoginL1 } = useWalletActions(); // Missing address, chainId
 ```
 
 #### Error Boundary for Wallet Issues
