@@ -1,17 +1,17 @@
 # zkWasm Mini Rollup Browser SDK
 
-A modern, type-safe SDK for zkWasm Mini Rollup integration with **unified wallet context API**, supporting multiple wallet types and blockchain interactions.
+A modern, production-ready SDK for zkWasm Mini Rollup integration with **unified wallet context API**, supporting Layer 2 account management, multi-wallet providers, and blockchain interactions.
 
 ## 🚀 Key Features
 
-- **🎯 Unified Wallet Context** - Single `useWalletContext` hook provides complete wallet functionality
-- **🎨 Modern UI Integration** - Complete RainbowKit components exported from SDK
-- **⚡ Simplified Setup** - Single `DelphinusProvider` replaces complex provider nesting
-- **🔧 Environment Management** - Unified REACT_APP_ prefix with dotenv support
-- **🔄 Compatibility** - Support for multiple React project types
+- **🎯 Unified Wallet Context** - Single `useWalletContext` hook provides complete L1 + L2 wallet functionality
+- **⚡ Layer 2 Integration** - Seamless L1→L2 account derivation via app-specific signatures
+- **🎨 Modern UI Integration** - RainbowKit components with mobile wallet optimization
+- **🛡️ Production Ready** - Advanced session recovery, error handling, and state management
+- **🔧 Environment Management** - Unified configuration with dotenv support across all project types
+- **🌐 Multi-Wallet Support** - MetaMask, WalletConnect, Rainbow, and 20+ wallet providers
 - **🎯 Type Safety** - Full TypeScript support with comprehensive type definitions
-- **🌐 Cross-Platform** - Works with CRA, Next.js, Vite, and custom builds
-- **⚡ Performance Optimized** - Advanced hooks available for granular control
+- **⚡ Performance Optimized** - Proactive monitoring, adaptive polling, and resource cleanup
 
 ## 📋 Quick Start
 
@@ -21,13 +21,48 @@ A modern, type-safe SDK for zkWasm Mini Rollup integration with **unified wallet
 npm install zkwasm-minirollup-browser
 ```
 
-### 2. Setup Provider (Choose one)
+### 2. Setup Provider & Configuration
+
+#### Option A: Complete Setup (Recommended for new projects)
 
 ```tsx
+// main.tsx
 import React from 'react';
-import { DelphinusReactProvider } from 'zkwasm-minirollup-browser';
+import ReactDOM from 'react-dom/client';
+import { DelphinusReactProvider, setProviderConfig } from 'zkwasm-minirollup-browser';
+import App from './App';
+
+// Configure provider before rendering
+setProviderConfig({ type: 'rainbow' });
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <DelphinusReactProvider appName="zkWasm Staking Platform">
+      <App />
+    </DelphinusReactProvider>
+  </React.StrictMode>,
+);
+```
+
+#### Option B: Existing Apps Integration
+
+```tsx
+// App.tsx
+import { DelphinusReactProvider, setProviderConfig, validateEnvConfig } from 'zkwasm-minirollup-browser';
+import { useEffect } from 'react';
 
 function App() {
+  useEffect(() => {
+    // Validate environment
+    const validation = validateEnvConfig();
+    if (!validation.isValid) {
+      console.warn('Environment validation failed:', validation.errors);
+    }
+    
+    // Configure provider
+    setProviderConfig({ type: 'rainbow' });
+  }, []);
+
   return (
     <DelphinusReactProvider appName="My zkWasm App">
       <YourAppContent />
@@ -36,33 +71,72 @@ function App() {
 }
 ```
 
-> **⚠️ Important: App Name for L2 Login Signing**
+> **🔑 Critical: App Name = L2 Signature Message**
 > 
-> The `appName` parameter is **not just a display name** - it is used as the message content for L2 account login signatures. When users connect their L2 account, they will sign your app name to generate their L2 private key.
-> 
-> - **Use a unique, descriptive name** for your application
-> - **Keep it consistent** across app versions (changing it will generate different L2 accounts)
-> - **Users will see this name** in their wallet when signing
-> - **Example**: `"MyDApp v1.0"`, `"GameXYZ Mainnet"`, `"MyApp Testing"`
+> The `appName` is **the exact message users sign** to generate their L2 account:
+> - ✅ `"zkWasm Staking Platform"` → User signs this in their wallet
+> - ✅ Same `appName` = Same L2 account for user across sessions
+> - ❌ Change `appName` = New L2 account (loses previous data)
+> - 🎯 Choose a **permanent, unique** name for your application
 
 ### 3. Use the Unified Wallet Context
 
 ```tsx
-import { useWalletContext } from 'zkwasm-minirollup-browser';
+// components/WalletButton.tsx
+import { useWalletContext, useConnectModal } from 'zkwasm-minirollup-browser';
 
-function WalletComponent() {
+function WalletButton() {
   const {
-    isConnected, isL2Connected, l1Account, l2Account, 
-    playerId, address, chainId,
-    connectL1, connectL2, disconnect, deposit
+    isConnected, isL2Connected, address, playerId,
+    connectL2, disconnect
   } = useWalletContext();
+  
+  const { openConnectModal } = useConnectModal();
+
+  const handleConnect = async () => {
+    try {
+      if (!isConnected) {
+        // Open RainbowKit modal for L1 connection
+        openConnectModal?.();
+      } else if (!isL2Connected) {
+        // Connect L2 account (user signs app name)
+        await connectL2();
+        console.log('L2 account connected successfully');
+      }
+    } catch (error) {
+      console.error('Connection failed:', error);
+      
+      // Handle SDK error codes
+      if (error.code === 'SESSION_EXPIRED') {
+        disconnect(); // SDK auto-cleared session
+      } else if (error.message?.includes('User rejected')) {
+        console.log('User cancelled connection');
+      } else {
+        alert(`Connection failed: ${error.message}`);
+      }
+    }
+  };
 
   return (
-    <div>
-      <p>L1: {isConnected ? '✅' : '❌'} | L2: {isL2Connected ? '✅' : '❌'}</p>
-      <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
-      <button onClick={connectL1}>Connect L1</button>
-      <button onClick={connectL2}>Connect L2 (Signs App Name)</button>
+    <div className="wallet-status">
+      {/* Connection Status */}
+      <div>
+        <span>L1: {isConnected ? '✅' : '❌'}</span>
+        <span>L2: {isL2Connected ? '✅' : '❌'}</span>
+        {playerId && <span>Player: [{playerId[0]}, {playerId[1]}]</span>}
+      </div>
+      
+      {/* Action Buttons */}
+      {!isConnected ? (
+        <button onClick={handleConnect}>Connect Wallet</button>
+      ) : !isL2Connected ? (
+        <button onClick={handleConnect}>Connect L2 (Sign App Name)</button>
+      ) : (
+        <div>
+          <span>{address?.slice(0, 6)}...{address?.slice(-4)}</span>
+          <button onClick={disconnect}>Disconnect</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -73,17 +147,22 @@ function WalletComponent() {
 Create a `.env` file in your project root:
 
 ```env
-# Required Configuration
+# Required Configuration  
 REACT_APP_CHAIN_ID=11155111
 REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
 REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
 REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
 
 # Optional Configuration
+REACT_APP_URL=https://your-api-endpoint.com
 REACT_APP_MODE=development
 ```
 
-> **Note**: The SDK uses dotenv to automatically load environment variables and supports unified `REACT_APP_` prefix for all project types (CRA, Next.js, Vite).
+> **📋 Environment Notes**:
+> - SDK uses **unified `REACT_APP_` prefix** for all project types (CRA, Next.js, Vite)
+> - **WalletConnect Project ID** is required for mobile wallet support
+> - Get your Project ID at: https://cloud.walletconnect.com/
+> - SDK includes built-in **security validation** for all environment variables
 
 ## 🏗️ Architecture Overview
 
@@ -206,101 +285,175 @@ function App() {
 
 ## 🎯 Core API Usage
 
-### Unified Wallet Context (Recommended)
+### Complete Wallet Integration Example
 
-> **💡 Key Point**: The `appName` you provide to `DelphinusReactProvider` becomes the signature message for L2 login. Users will literally sign your app name to generate their L2 account.
+Based on the actual implementation in our example app:
 
 ```tsx
-import React from 'react';
-import { 
-  useWalletContext,
-  type WalletContextType 
-} from 'zkwasm-minirollup-browser';
+// contexts/WalletContext.tsx - Simple re-export pattern
+import { useWalletContext, type WalletContextType } from 'zkwasm-minirollup-browser';
 
-function WalletComponent() {
-  const {
-    // Connection states
-    isConnected,        // L1 connection status
-    isL2Connected,      // L2 connection status  
-    l1Account,          // L1 account info
-    l2Account,          // L2 account info (full L2AccountInfo instance)
-    playerId,           // [string, string] | null - PID array
-    address,            // wallet address
-    chainId,            // current chain ID
-    
-    // Actions
-    connectL1,          // connect L1 wallet
-    connectL2,          // connect L2 account (signs appName!)
-    disconnect,         // disconnect wallet
-    setPlayerId,        // PID setter (derived from L2 account)
-    deposit,            // deposit tokens to L2
-  } = useWalletContext();
+// Re-export for consistent naming in your app
+export const useWallet = useWalletContext;
+export type { WalletContextType };
+```
+
+```tsx
+// components/Header.tsx - Real-world wallet button implementation
+import { useWallet } from '@/contexts/WalletContext';
+import { useConnectModal } from 'zkwasm-minirollup-browser';
+
+export const Header = () => {
+  const { 
+    isConnected, 
+    isL2Connected, 
+    address, 
+    playerId,
+    connectL2,
+    disconnect
+  } = useWallet();
   
-  // Access L2 account methods directly
-  const handleSerialize = () => {
-    if (l2Account) {
-      const serialized = l2Account.toSerializableData();
-      console.log('Serialized L2 account:', serialized);
-    }
-  };
-  
-  // L2 Connection - User will be prompted to sign your app name
-  const handleL2Connect = async () => {
+  const { openConnectModal } = useConnectModal();
+
+  const handleWalletClick = async () => {
     try {
-      // This will prompt user to sign the appName from DelphinusReactProvider
-      await connectL2();
-      console.log('L2 account connected via app name signature');
-    } catch (error) {
-      console.error('L2 connection failed:', error);
+      if (!isConnected) {
+        // Open RainbowKit modal for L1 connection
+        openConnectModal?.();
+      } else if (!isL2Connected) {
+        // Connect L2 account (signs app name)
+        await connectL2();
+      }
+    } catch (error: any) {
+      console.error('Failed to connect wallet:', error);
+      
+      // Handle SDK-specific error codes
+      if (error?.code === 'SESSION_EXPIRED') {
+        disconnect(); // SDK already cleared session
+      } else if (error?.message?.includes('User rejected')) {
+        console.log('User cancelled connection');
+      } else {
+        alert(`Connection failed: ${error?.message || 'Unknown error'}`);
+      }
     }
   };
+
+  return (
+    <header>
+      {isConnected ? (
+        <div className="wallet-info">
+          {/* Connection Status Indicator */}
+          <div className="status-indicator">
+            <span className={isL2Connected ? 'connected' : 'warning'}>
+              {address?.slice(0, 6)}...{address?.slice(-4)}
+            </span>
+            {isL2Connected && playerId && (
+              <span className="l2-badge">L2 Connected</span>
+            )}
+          </div>
+          
+          {/* L2 Connect Button */}
+          {!isL2Connected && (
+            <button onClick={async () => {
+              try {
+                await connectL2();
+              } catch (error: any) {
+                if (error?.code === 'SESSION_EXPIRED') {
+                  disconnect();
+                } else {
+                  alert(`L2 connection failed: ${error?.message}`);
+                }
+              }
+            }}>
+              Connect L2
+            </button>
+          )}
+        </div>
+      ) : (
+        <button onClick={handleWalletClick}>
+          Connect Wallet
+        </button>
+      )}
+    </header>
+  );
+};
+```
+
+### zkWasm Transactions Example
+
+```tsx
+// services/stakingService.ts - Real zkWasm operations
+import { createCommand } from 'zkwasm-minirollup-rpc';
+
+export class StakingService {
+  // Install player (L2 account setup)
+  async installPlayer(l2PrivateKey: string) {
+    const installCmd = createCommand(1, [], l2PrivateKey); // Command 1 = Install Player
+    
+    // Send to zkWasm RPC
+    const result = await fetch(`${API_BASE_URL}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        cmd: Array.from(installCmd),
+        prikey: l2PrivateKey 
+      })
+    });
+    
+    return result.json();
+  }
   
-  // Handle deposit using unified context
-  const handleDeposit = async () => {
-    if (!isConnected || !isL2Connected) {
-      alert('Please connect both L1 and L2 accounts first');
+  // Deposit ETH to L2
+  async depositToL2(amount: bigint, l2PrivateKey: string) {
+    const depositCmd = createCommand(3, [amount], l2PrivateKey); // Command 3 = Deposit
+    
+    const result = await fetch(`${API_BASE_URL}/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cmd: Array.from(depositCmd),
+        prikey: l2PrivateKey
+      })
+    });
+    
+    return result.json();
+  }
+}
+
+// Component using the service
+function StakingForm() {
+  const { l2Account, isL2Connected, deposit } = useWallet();
+  
+  const handleStake = async (amount: number) => {
+    if (!isL2Connected || !l2Account) {
+      alert('Please connect L2 account first');
       return;
     }
     
     try {
-      await deposit({
-        tokenIndex: 0,
-        amount: 0.01
-      });
-      alert('Deposit successful!');
+      // Step 1: L1 deposit (handled by SDK)
+      await deposit({ tokenIndex: 0, amount });
+      
+      // Step 2: L2 staking operation
+      const stakingService = new StakingService();
+      await stakingService.depositToL2(
+        BigInt(amount * 10**18), 
+        l2Account.getPrivateKey()
+      );
+      
+      alert('Staking successful!');
     } catch (error) {
-      console.error('Deposit failed:', error);
-      alert(`Deposit failed: ${error.message}`);
+      console.error('Staking failed:', error);
+      alert(`Staking failed: ${error.message}`);
     }
   };
   
   return (
     <div>
-      {/* Status Display */}
-      <div className="status-section">
-        <h3>Wallet Status</h3>
-        <p>L1: {isConnected ? '✅' : '❌'} | L2: {isL2Connected ? '✅' : '❌'}</p>
-        <p>Player ID: {playerId ? `[${playerId[0]}, ${playerId[1]}]` : 'None'}</p>
-        <p>Address: {address}</p>
-        <p>Chain ID: {chainId}</p>
-      </div>
-
-      {/* Actions */}
-      <div className="actions-section">
-        {!isConnected ? (
-          <button onClick={connectL1}>Connect L1 Wallet</button>
-        ) : !isL2Connected ? (
-          <button onClick={handleL2Connect}>
-            Connect L2 (Sign App Name)
-          </button>
-        ) : (
-          <div>
-            <button onClick={handleDeposit}>Deposit 0.01 ETH</button>
-            <button onClick={disconnect}>Disconnect</button>
-            <button onClick={handleSerialize}>Serialize L2 Account</button>
-          </div>
-        )}
-      </div>
+      <input type="number" placeholder="Amount to stake" />
+      <button onClick={() => handleStake(0.01)}>
+        Stake 0.01 ETH
+      </button>
     </div>
   );
 }
@@ -501,76 +654,164 @@ const getNetworkInfo = async () => {
 };
 ```
 
-## 🔍 Troubleshooting
+## 🔍 Troubleshooting & Error Handling
 
-### Common Issues
+### Production-Ready Error Handling
 
-#### Environment Variables Not Found
+The SDK provides comprehensive error handling with specific error codes:
+
 ```tsx
-import { validateEnvConfig } from 'zkwasm-minirollup-browser';
+// Standard error handling pattern from example app
+import { useWalletContext, useConnectModal } from 'zkwasm-minirollup-browser';
 
-const validation = validateEnvConfig();
-if (!validation.isValid) {
-  console.error('Environment validation failed:', validation.errors);
-  // Each error in validation.errors array describes what's missing
-}
-```
+function WalletComponent() {
+  const { isConnected, isL2Connected, connectL2, disconnect } = useWalletContext();
+  const { openConnectModal } = useConnectModal();
 
-#### Wallet Context Connection Issues
-```tsx
-import { useWalletContext } from 'zkwasm-minirollup-browser';
-
-function DiagnosticComponent() {
-  const { 
-    isConnected, 
-    isL2Connected, 
-    address, 
-    chainId, 
-    l1Account, 
-    l2Account,
-    connectL1,
-    connectL2 
-  } = useWalletContext();
-
-const handleConnect = async () => {
-  try {
-      await connectL1();
-  } catch (error) {
-    if (error.message.includes('User rejected')) {
-      alert('Please approve the connection in your wallet');
-    } else if (error.message.includes('network')) {
-      alert('Please check your network connection');
-    } else {
-      console.error('Connection error:', error);
-      alert(`Connection failed: ${error.message}`);
-    }
-  }
-};
-
-  const handleL2Connect = async () => {
+  const handleWalletAction = async () => {
     try {
-      await connectL2();
-    } catch (error) {
-      console.error('L2 connection failed:', error);
-      alert(`L2 connection failed: ${error.message}`);
+      if (!isConnected) {
+        openConnectModal?.();
+      } else if (!isL2Connected) {
+        await connectL2();
+      }
+    } catch (error: any) {
+      console.error('Wallet action failed:', error);
+      
+      // Handle SDK-specific error codes
+      if (error?.code === 'SESSION_EXPIRED') {
+        // SDK automatically cleared invalid session
+        disconnect();
+        alert('Session expired. Please reconnect your wallet.');
+      } else if (error?.code === 'SESSION_MISMATCH') {
+        // Session validation failed
+        disconnect(); 
+        alert('Wallet session mismatch. Please reconnect.');
+      } else if (error?.message?.includes('User rejected') || 
+                 error?.message?.includes('User cancelled')) {
+        // User cancelled - no error alert needed
+        console.log('User cancelled wallet operation');
+      } else if (error?.message?.includes('WalletConnect')) {
+        // WalletConnect specific errors
+        alert('Mobile wallet connection failed. Please try again.');
+      } else {
+        // Generic error handling
+        alert(`Connection failed: ${error?.message || 'Unknown error'}`);
+      }
     }
   };
 
   return (
-    <div>
-      <h3>Diagnostic Information</h3>
-      <p>L1 Connected: {isConnected ? 'Yes' : 'No'}</p>
-      <p>L2 Connected: {isL2Connected ? 'Yes' : 'No'}</p>
-      <p>Address: {address || 'None'}</p>
-      <p>Chain ID: {chainId || 'None'}</p>
-      <p>L1 Account: {l1Account ? 'Available' : 'None'}</p>
-      <p>L2 Account: {l2Account ? 'Available' : 'None'}</p>
-      
-      <button onClick={handleConnect}>Test L1 Connection</button>
-      <button onClick={handleL2Connect}>Test L2 Connection</button>
-    </div>
+    <button onClick={handleWalletAction}>
+      {!isConnected ? 'Connect Wallet' : !isL2Connected ? 'Connect L2' : 'Connected'}
+    </button>
   );
 }
+```
+
+### Common Issues & Solutions
+
+#### 1. Environment Configuration Issues
+```tsx
+import { validateEnvConfig, getEnvConfig } from 'zkwasm-minirollup-browser';
+
+// App startup validation
+function App() {
+  useEffect(() => {
+    // Validate environment
+    const validation = validateEnvConfig();
+    if (!validation.isValid) {
+      console.error('❌ Environment validation failed:');
+      validation.errors.forEach(error => console.error(`  - ${error}`));
+      
+      // Show user-friendly error
+      alert('Configuration error. Please check your .env file.');
+      return;
+    }
+    
+    // Log successful config (for debugging)
+    const config = getEnvConfig();
+    console.log('✅ Environment validated:', {
+      chainId: config.chainId,
+      hasWalletConnect: !!config.walletConnectId,
+      hasContracts: !!(config.depositContract && config.tokenContract)
+    });
+  }, []);
+
+  return <YourApp />;
+}
+```
+
+#### 2. WalletConnect & Mobile Wallet Issues
+```tsx
+// Mobile wallet troubleshooting
+const handleMobileWalletIssues = (error: any) => {
+  if (error?.message?.includes('session_request') && 
+      error?.message?.includes('without any listeners')) {
+    // SDK automatically handles this - just inform user
+    console.log('🔄 WalletConnect session expired, cleared automatically');
+    alert('Mobile wallet session expired. Please reconnect.');
+    return true;
+  }
+  
+  if (error?.message?.includes('No matching session')) {
+    console.log('🔄 No active WalletConnect session found');
+    alert('Please open your mobile wallet and try connecting again.');
+    return true;
+  }
+  
+  return false; // Not a WalletConnect error
+};
+```
+
+#### 3. L2 Account & zkWasm Errors
+```tsx
+// zkWasm-specific error handling
+import { StakingError } from '@/services/stakingService';
+
+const handleZkWasmOperation = async () => {
+  try {
+    await stakingService.performOperation();
+  } catch (error) {
+    if (error instanceof StakingError) {
+      // Handle specific zkWasm errors
+      switch (error.code) {
+        case 20:
+          alert('Player not found. Please install player first.');
+          break;
+        case 21:
+          alert('Insufficient stake. Please deposit more funds.');
+          break;
+        case 31:
+          alert('Insufficient points for this operation.');
+          break;
+        default:
+          alert(`zkWasm error: ${error.message}`);
+      }
+    } else {
+      alert(`Operation failed: ${error.message}`);
+    }
+  }
+};
+```
+
+#### 4. Network & Provider Issues
+```tsx
+// Network validation and switching
+const handleNetworkIssues = async () => {
+  const { chainId } = useWalletContext();
+  const expectedChainId = parseInt(process.env.REACT_APP_CHAIN_ID || '11155111');
+  
+  if (chainId !== expectedChainId) {
+    try {
+      // SDK automatically handles network switching
+      alert(`Wrong network. Please switch to chain ID ${expectedChainId}`);
+    } catch (networkError) {
+      console.error('Network switch failed:', networkError);
+      alert('Failed to switch network. Please manually switch in your wallet.');
+    }
+  }
+};
 ```
 
 #### Provider Configuration Issues
@@ -695,9 +936,122 @@ MIT
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
+## 🎉 Complete Example
+
+Here's a complete minimal example based on our production-ready demo:
+
+```tsx
+// main.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { DelphinusReactProvider, setProviderConfig } from 'zkwasm-minirollup-browser';
+import App from './App';
+import './index.css';
+
+setProviderConfig({ type: 'rainbow' });
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <DelphinusReactProvider appName="My zkWasm DApp">
+      <App />
+    </DelphinusReactProvider>
+  </React.StrictMode>,
+);
+```
+
+```tsx
+// App.tsx
+import { useWalletContext, useConnectModal } from 'zkwasm-minirollup-browser';
+
+function App() {
+  const { 
+    isConnected, 
+    isL2Connected, 
+    address, 
+    playerId, 
+    connectL2, 
+    disconnect, 
+    deposit 
+  } = useWalletContext();
+  
+  const { openConnectModal } = useConnectModal();
+
+  const handleConnect = async () => {
+    try {
+      if (!isConnected) {
+        openConnectModal?.();
+      } else if (!isL2Connected) {
+        await connectL2();
+      }
+    } catch (error: any) {
+      if (error?.code === 'SESSION_EXPIRED') {
+        disconnect();
+      } else if (!error?.message?.includes('User')) {
+        alert(`Connection failed: ${error?.message}`);
+      }
+    }
+  };
+
+  const handleDeposit = async () => {
+    try {
+      await deposit({ tokenIndex: 0, amount: 0.01 });
+      alert('Deposit successful!');
+    } catch (error: any) {
+      alert(`Deposit failed: ${error?.message}`);
+    }
+  };
+
+  return (
+    <div style={{ padding: '2rem' }}>
+      <h1>zkWasm DApp</h1>
+      
+      <div>
+        <p>L1: {isConnected ? '✅' : '❌'}</p>
+        <p>L2: {isL2Connected ? '✅' : '❌'}</p>
+        {address && <p>Address: {address.slice(0, 6)}...{address.slice(-4)}</p>}
+        {playerId && <p>Player ID: [{playerId[0]}, {playerId[1]}]</p>}
+      </div>
+      
+      <div style={{ marginTop: '1rem' }}>
+        <button onClick={handleConnect}>
+          {!isConnected ? 'Connect Wallet' : !isL2Connected ? 'Connect L2' : 'Connected'}
+        </button>
+        
+        {isL2Connected && (
+          <button onClick={handleDeposit} style={{ marginLeft: '1rem' }}>
+            Deposit 0.01 ETH
+          </button>
+        )}
+        
+        {isConnected && (
+          <button onClick={disconnect} style={{ marginLeft: '1rem' }}>
+            Disconnect
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;
+```
+
+```bash
+# .env
+REACT_APP_CHAIN_ID=11155111
+REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
+REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
+REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+```
+
 ---
 
-For more detailed examples, see the [example](./example) directory.
+## 📚 Resources
+
+- **[Complete Example App](./example)** - Full-featured staking platform
+- **[API Documentation](./src)** - Detailed SDK source code
+- **[WalletConnect Setup](https://cloud.walletconnect.com/)** - Get your Project ID
+- **[zkWasm Documentation](https://docs.zkwasm.com/)** - Learn about zkWasm technology
 
 ### RainbowKit Components Integration
 
@@ -738,6 +1092,141 @@ function RainbowKitIntegration() {
     </div>
   );
 }
+```
+
+## 🔧 Project Setup & Build Configuration
+
+### Webpack/CRA Configuration
+
+For Create React App or webpack-based projects, you'll need to configure Node.js polyfills:
+
+```bash
+# Install required dependencies
+npm install --save-dev react-app-rewired
+npm install buffer crypto-browserify stream-browserify process util path-browserify os-browserify
+```
+
+```javascript
+// config-overrides.js
+const webpack = require('webpack');
+
+module.exports = function override(config, env) {
+  // Node.js polyfills for Web3 libraries
+  const fallback = config.resolve.fallback || {};
+  Object.assign(fallback, {
+    "crypto": require.resolve("crypto-browserify"),
+    "stream": require.resolve("stream-browserify"),
+    "buffer": require.resolve("buffer"),
+    "process": require.resolve("process/browser"),
+    "util": require.resolve("util"),
+    "path": require.resolve("path-browserify"),
+    "os": require.resolve("os-browserify/browser")
+  });
+  config.resolve.fallback = fallback;
+  
+  // Global providers
+  config.plugins = (config.plugins || []).concat([
+    new webpack.ProvidePlugin({
+      process: 'process/browser',
+      Buffer: ['buffer', 'Buffer']
+    })
+  ]);
+
+  return config;
+};
+```
+
+```json
+// package.json
+{
+  "scripts": {
+    "start": "react-app-rewired start",
+    "build": "react-app-rewired build",
+    "test": "react-app-rewired test"
+  }
+}
+```
+
+### Vite Configuration
+
+For Vite projects (recommended for new projects):
+
+```bash
+# Install Vite polyfills
+npm install --save-dev vite-plugin-node-polyfills
+```
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
+
+export default defineConfig({
+  plugins: [
+    react(),
+    nodePolyfills({
+      protocolImports: true,
+      include: ['crypto', 'stream', 'buffer', 'process', 'util', 'path', 'os']
+    })
+  ],
+  define: {
+    global: 'globalThis',
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+})
+```
+
+### TypeScript Configuration
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "src",
+    "src/**/*.ts",
+    "src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
+```
+
+### Environment Setup
+
+```bash
+# .env
+REACT_APP_CHAIN_ID=11155111
+REACT_APP_DEPOSIT_CONTRACT=0x1234567890123456789012345678901234567890
+REACT_APP_TOKEN_CONTRACT=0x0987654321098765432109876543210987654321
+REACT_APP_WALLETCONNECT_PROJECT_ID=your_walletconnect_project_id
+REACT_APP_URL=https://your-api-endpoint.com
+REACT_APP_MODE=development
 ```
 
 ## WalletConnect / Mobile Wallet Support
