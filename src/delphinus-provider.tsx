@@ -470,7 +470,7 @@ function getDefaultStore() {
               'account/resetAccountState',
             ],
             // Ignore specific paths in actions
-            ignoredActionsPaths: [
+            ignoredActionPaths: [
               'payload', 
               'meta.arg', 
               'payload.l2account',
@@ -573,7 +573,7 @@ export const DelphinusProvider: React.FC<DelphinusProviderProps> = ({
 export function createDelphinusStore(
   additionalReducers?: any,
   additionalIgnoredActions: string[] = [],
-  additionalIgnoredActionsPaths: string[] = [],
+  additionalIgnoredActionPaths: string[] = [],
   additionalIgnoredPaths: string[] = [],
   additionalIgnoredNestedPaths: string[] = []
 ) {
@@ -614,14 +614,14 @@ export function createDelphinusStore(
             ...additionalIgnoredActions,
           ],
           // Ignore specific paths in actions
-          ignoredActionsPaths: [
+          ignoredActionPaths: [
             'payload', 
             'meta.arg', 
             'payload.l2account',
             'payload.l1Account',
             'meta.arg.l2account',
             "meta.arg.l1account",
-            ...additionalIgnoredActionsPaths,
+            ...additionalIgnoredActionPaths,
           ],
           // Ignore specific paths in state
           ignoredPaths: [
