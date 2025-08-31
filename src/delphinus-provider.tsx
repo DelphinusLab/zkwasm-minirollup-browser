@@ -16,8 +16,6 @@ import {
   okxWallet,
   bitgetWallet,
   imTokenWallet,
-  injectedWallet,
-  binanceWallet,
   safeWallet,
   argentWallet,
   braveWallet,
@@ -25,6 +23,7 @@ import {
   oneInchWallet,
   uniswapWallet,
   tokenPocketWallet,
+  binanceWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import { Provider as ReduxProvider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
@@ -122,8 +121,8 @@ export function createDelphinusRainbowKitConfig(options: {
         wallets: [
           metaMaskWallet,
           okxWallet,
-          binanceWallet,
           trustWallet,
+          binanceWallet,
         ],
       },
       {
@@ -149,13 +148,8 @@ export function createDelphinusRainbowKitConfig(options: {
           safeWallet,
         ],
       },
-      {
-        groupName: 'Other',
-        wallets: [
-          injectedWallet,
-        ],
-      },
     ],
+    multiInjectedProviderDiscovery: false,
     ssr: false, // Disable SSR for better client-side session recovery
   });
 
