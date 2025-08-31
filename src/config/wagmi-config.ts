@@ -79,6 +79,7 @@ export const wagmiConfig = createConfig({
     [targetChain.id]: http(),
   },
   ssr: false, // Set to false if your app doesn't use SSR
+  multiInjectedProviderDiscovery: false,
 });
 
 export { targetChain };
